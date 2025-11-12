@@ -38,7 +38,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          GITHUB_PAGES_BASE: "/"
+          GITHUB_PAGES_BASE: "/hawkai/"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
