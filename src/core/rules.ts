@@ -19,7 +19,9 @@ export async function loadRuleIndex(signal?: AbortSignal): Promise<RulePackIndex
 }
 
 async function fetchManifest(signal?: AbortSignal): Promise<RuleManifest> {
-  const res = await fetch("/rules/index.json", { cache: "no-store", signal });
+  const baseUrl = import.meta.env.BASE_URL;
+  const manifestPath = `${baseUrl}rules/index.json`.replace(/\/+/g, "/");
+  const res = await fetch(manifestPath, { cache: "no-store", signal });
   if (!res.ok) {
     throw new Error("Unable to load rule manifest");
   }
@@ -27,9 +29,11 @@ async function fetchManifest(signal?: AbortSignal): Promise<RuleManifest> {
 }
 
 async function loadRuleDefinitions(files: string[], signal?: AbortSignal): Promise<RuleDefinition[]> {
+  const baseUrl = import.meta.env.BASE_URL;
   const results = await Promise.all(
     files.map(async (file) => {
-      const res = await fetch(`/rules/${file}`, { cache: "no-store", signal });
+      const rulePath = `${baseUrl}rules/${file}`.replace(/\/+/g, "/");
+      const res = await fetch(rulePath, { cache: "no-store", signal });
       if (!res.ok) {
         throw new Error(`Failed to load rule pack ${file}`);
       }
@@ -43,7 +47,9 @@ async function loadRuleDefinitions(files: string[], signal?: AbortSignal): Promi
 }
 
 async function loadOwaspMetadata(file: string, signal?: AbortSignal) {
-  const res = await fetch(`/rules/${file}`, { cache: "no-store", signal });
+  const baseUrl = import.meta.env.BASE_URL;
+  const metadataPath = `${baseUrl}rules/${file}`.replace(/\/+/g, "/");
+  const res = await fetch(metadataPath, { cache: "no-store", signal });
   if (!res.ok) {
     throw new Error("Failed to load OWASP metadata");
   }
