@@ -17,11 +17,14 @@
     "jsx": "react-jsx",
     "types": ["node"],
     "paths": {
+      "@/*": ["./src/*"],
       "@/core/*": ["./src/core/*"],
       "@/ui/*": ["./src/ui/*"],
+      "@/lib/*": ["./src/lib/*"],
       "@/types": ["./src/types"]
     }
   },
   "include": ["src"],
+  "exclude": ["node_modules", "dist"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

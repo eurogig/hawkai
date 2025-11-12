@@ -33,7 +33,7 @@
   fileGlobs:
     - "**/*.py"
     - "**/*.{ts,tsx,js,jsx}"
-  contentRegex: "(pipeline\\s*\\(\\s*['\\\"]zero-shot-classification['\\\"]|classifier\\s*=\\s*pipeline\\()"
+  contentRegex: "(Lopeline\\s*\\(\\s*['\\\"]zero-shot-classification['\\\"]|classifier\\s*=\\s*pipeline\\()"
   evidenceHint: "zero-shot classifier used for tool selection"
   remediation: "Add guardrails or human review when routing actions via zero-shot classifiers. Validate tool calls before execution."
   confidence: 0.6
