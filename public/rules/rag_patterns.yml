@@ -1,0 +1,128 @@
+- id: RAG-VECTOR-DB
+  title: "Vector database detected"
+  severity: "moderate"
+  category: "RAG"
+  owasp:
+    - "LLM03: Training Data Poisoning"
+    - "LLM06: Sensitive Information Disclosure"
+    - "LLM01: Prompt Injection"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(import\\s+(pinecone|weaviate|chroma|qdrant|milvus|faiss|pgvector|vectorstore)|from\\s+(pinecone|weaviate|chromadb|qdrant_client|milvus|faiss|pgvector)|new\\s+(Pinecone|Weaviate|Chroma|Qdrant|Milvus)|require\\(['\"\\`](pinecone|weaviate|chromadb|qdrant-client|milvus|faiss)['\"\\`]\\))"
+  evidenceHint: "Vector database import or instantiation"
+  remediation: "Audit vector database access controls and data sources. Validate retrieved context before injection into prompts. Monitor for data poisoning."
+  confidence: 0.75
+
+- id: RAG-EMBEDDINGS
+  title: "Embedding model usage detected"
+  severity: "moderate"
+  category: "RAG"
+  owasp:
+    - "LLM10: Supply Chain"
+    - "LLM06: Sensitive Information Disclosure"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(embeddings\\.create|createEmbedding|embed_query|embed_documents|SentenceTransformer|from_pretrained.*embed|OpenAIEmbeddings|HuggingFaceEmbeddings|embed\\(|get_embedding)"
+  evidenceHint: "Embedding model usage"
+  remediation: "Validate embedding model sources and versions. Ensure sensitive data is not embedded without proper access controls."
+  confidence: 0.7
+
+- id: RAG-TEXT-SPLITTER
+  title: "Text chunking/splitting for RAG detected"
+  severity: "low"
+  category: "RAG"
+  owasp:
+    - "LLM01: Prompt Injection"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(RecursiveCharacterTextSplitter|CharacterTextSplitter|TokenTextSplitter|split_text|chunk_text|split_documents|chunk_size|chunk_overlap)"
+  evidenceHint: "Text splitting/chunking pattern"
+  remediation: "Review chunking strategy to prevent context fragmentation attacks. Validate chunk boundaries."
+  confidence: 0.6
+
+- id: RAG-RETRIEVAL
+  title: "Vector similarity search or retrieval detected"
+  severity: "high"
+  category: "RAG"
+  owasp:
+    - "LLM01: Prompt Injection"
+    - "LLM03: Training Data Poisoning"
+    - "LLM06: Sensitive Information Disclosure"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(similarity_search|vector_search|retrieve|query\\.query|search\\(|get_relevant_documents|as_retriever|RetrievalQA|retriever\\.get_relevant)"
+  evidenceHint: "Vector search or retrieval operation"
+  remediation: "Validate retrieved context before injection. Implement access controls on vector database. Monitor for retrieval attacks and data poisoning."
+  confidence: 0.8
+
+- id: RAG-CHAIN
+  title: "RAG chain or retrieval-augmented generation pattern"
+  severity: "high"
+  category: "RAG"
+  owasp:
+    - "LLM01: Prompt Injection"
+    - "LLM03: Training Data Poisoning"
+    - "LLM06: Sensitive Information Disclosure"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(RetrievalQA|ConversationalRetrievalChain|RetrievalQAWithSourcesChain|RAG|retrieval.*augmented|from_chain_type.*retrieval|load_qa_chain.*retriever)"
+  evidenceHint: "RAG chain pattern"
+  remediation: "Implement strict validation of retrieved context. Monitor for prompt injection via retrieved data. Audit data sources in vector database."
+  confidence: 0.85
+
+- id: RAG-LANGCHAIN-VECTORSTORE
+  title: "LangChain vector store usage"
+  severity: "moderate"
+  category: "RAG"
+  owasp:
+    - "LLM10: Supply Chain"
+    - "LLM06: Sensitive Information Disclosure"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(from_documents|from_texts|FAISS\\.from_documents|Pinecone\\.from_documents|Chroma\\.from_documents|VectorStore|vectorstore|add_documents|add_texts)"
+  evidenceHint: "LangChain vector store operation"
+  remediation: "Audit data sources being indexed. Implement access controls on vector store operations."
+  confidence: 0.7
+
+- id: RAG-CONTEXT-INJECTION
+  title: "Retrieved context injected into LLM prompt"
+  severity: "high"
+  category: "RAG"
+  owasp:
+    - "LLM01: Prompt Injection"
+    - "LLM03: Training Data Poisoning"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(context.*prompt|retrieved.*message|system.*retrieved|user.*context|messages.*append.*retrieved|f['\"].*{.*context.*}['\"]|f['\"].*{.*retrieved.*}['\"])"
+  evidenceHint: "Retrieved context being injected into prompt"
+  remediation: "Sanitize and validate retrieved context before injection. Implement prompt injection detection on retrieved data."
+  confidence: 0.65
+

@@ -1,0 +1,10 @@
+{
+  "packs": [
+    "ai_fingerprints.yml",
+    "agentic_patterns.yml",
+    "secrets.yml",
+    "mcp_config.yml",
+    "rag_patterns.yml"
+  ],
+  "metadata": "owasp_mappings.yml"
+}

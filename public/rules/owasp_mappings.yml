@@ -1,0 +1,30 @@
+LLM01:
+  title: "Prompt Injection"
+  description: "Malicious or unintended instructions influencing model behavior."
+LLM02:
+  title: "Data Leakage"
+  description: "Exposure of sensitive training or input data from the model."
+LLM03:
+  title: "Model Theft"
+  description: "Unauthorized extraction of models or weights."
+LLM04:
+  title: "Supply Chain Vulnerabilities"
+  description: "Weaknesses introduced through libraries or integrations."
+LLM05:
+  title: "Excessive Agency"
+  description: "Granting models autonomous control without safeguards."
+LLM06:
+  title: "Sensitive Information Disclosure"
+  description: "Exposure of secrets or PII via prompts, logs, or outputs."
+LLM07:
+  title: "Model Denial of Service"
+  description: "Exhausting model resources or causing service disruption."
+LLM08:
+  title: "Poisoned Training Data"
+  description: "Compromise of model training data to influence outputs."
+LLM09:
+  title: "Model Misuse"
+  description: "Using models for unintended malicious purposes."
+LLM10:
+  title: "Supply Chain"
+  description: "Risks from dependencies, plugins, or packages."

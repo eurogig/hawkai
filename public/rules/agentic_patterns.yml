@@ -1,0 +1,116 @@
+- id: AG-LOOP-AUTOEXEC
+  title: "Autonomous agent loop with automatic tool execution"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM01: Prompt Injection"
+    - "LLM05: Excessive Agency"
+  fileGlobs:
+    - "**/*.{ts,tsx,js,jsx,py,go,rs}"
+  contentRegex: "(while\\s*\\(true\\)|for\\s*\\(;;\\))"
+  evidenceHint: "unbounded loop around tool calls"
+  remediation: "Gate autonomous actions behind policy checks, limits, and human-in-the-loop approvals."
+  confidence: 0.7
+- id: AG-PLAN-EXEC
+  title: "Agent automatically executing plan steps"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+  fileGlobs:
+    - "**/*.{ts,tsx,js,jsx,py}"
+  contentRegex: "executePlan\\s*\\(.*auto\\s*:\\s*true"
+  evidenceHint: "auto plan execution"
+  remediation: "Require human approval before executing generated plans or tool calls."
+  confidence: 0.6
+- id: AG-ROUTER-ZEROSHOT
+  title: "Zero-shot classifier routing requests to tools"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+    - "LLM01: Prompt Injection"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.{ts,tsx,js,jsx}"
+  contentRegex: "(pipeline\\s*\\(\\s*['\\\"]zero-shot-classification['\\\"]|classifier\\s*=\\s*pipeline\\()"
+  evidenceHint: "zero-shot classifier used for tool selection"
+  remediation: "Add guardrails or human review when routing actions via zero-shot classifiers. Validate tool calls before execution."
+  confidence: 0.6
+- id: AG-TOOL-SELECTION-CLASSIFIER
+  title: "Tool selection driven by classifier scoring"
+  severity: "moderate"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+  fileGlobs:
+    - "**/*.py"
+  contentRegex: "(candidate_labels\\s*=\\s*\\[|result\\s*=\\s*classifier\\()"
+  evidenceHint: "classifier output driving automated tool invocation"
+  remediation: "Require confidence thresholds, policy checks, and logging when activating tools automatically from classifier results."
+  confidence: 0.55
+- id: AG-A2A-FRAMEWORK
+  title: "Multi-agent orchestration framework detected"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+    - "LLM01: Prompt Injection"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(import\\s+(autogen|crewai|swarm|metagpt|agentops)|from\\s+(autogen|crewai|swarm|metagpt|agentops)|from\\s+langchain\\.agents)"
+  evidenceHint: "A2A orchestration framework import"
+  remediation: "Apply guardrails between agents; enforce explicit approval for delegated actions. Monitor inter-agent communication."
+  confidence: 0.7
+- id: AG-A2A-EXECUTOR
+  title: "Agent executor or multi-agent coordinator"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(AgentExecutor|GroupChat|add_agent|create_agent|MultiAgent|AgentCoordinator)"
+  evidenceHint: "Agent executor or coordinator pattern"
+  remediation: "Implement rate limiting, action approval workflows, and audit logging for agent coordination."
+  confidence: 0.65
+- id: AG-A2A-MESSAGING
+  title: "Inter-agent messaging or routing"
+  severity: "moderate"
+  category: "Agentic Design"
+  owasp:
+    - "LLM01: Prompt Injection"
+    - "LLM05: Excessive Agency"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(send_message|route_to_agent|agent_message|inter_agent|agent_communication)"
+  evidenceHint: "Inter-agent message passing"
+  remediation: "Validate and sanitize messages between agents. Implement message authentication."
+  confidence: 0.6
+- id: AG-A2A-ORCHESTRATION
+  title: "Agent orchestration configuration"
+  severity: "moderate"
+  category: "Configuration"
+  owasp:
+    - "LLM05: Excessive Agency"
+  fileGlobs:
+    - "**/*.yaml"
+    - "**/*.yml"
+    - "**/*.json"
+    - "**/config/**"
+  contentRegex: "(\"agents\"\\s*:\\s*\\[|agents:\\s*\\[|orchestration|agent_workflow|multi_agent)"
+  evidenceHint: "Multi-agent orchestration config"
+  remediation: "Review agent permissions and communication boundaries. Limit agent autonomy."
+  confidence: 0.55

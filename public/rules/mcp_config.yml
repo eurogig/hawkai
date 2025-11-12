@@ -1,0 +1,36 @@
+- id: AI-MCP-CONFIG
+  title: "MCP connector configuration present"
+  severity: "moderate"
+  category: "Configuration"
+  owasp:
+    - "LLM06: Sensitive Information Disclosure"
+    - "LLM10: Supply Chain"
+  fileGlobs:
+    - "**/*.mcp.json"
+    - "**/mcp.config.*"
+    - "**/pyproject.toml"
+    - "**/*.yaml"
+    - "**/*.yml"
+    - "**/*.json"
+  contentRegex: "(\"mcpServer\"|\\[mcp\\]|\"clientCapabilities\"|\"servers\"\\s*:\\s*\\[|mcp\\s*:\\s*\\{)"
+  evidenceHint: "MCP server/client configuration"
+  remediation: "Validate MCP config; ensure servers are authenticated and scoped to least privilege."
+  confidence: 0.6
+- id: AI-MCP-ENV
+  title: "MCP environment variables or launch config"
+  severity: "low"
+  category: "Configuration"
+  owasp:
+    - "LLM06: Sensitive Information Disclosure"
+  fileGlobs:
+    - "**/.env*"
+    - "**/*.env"
+    - "**/launch.json"
+    - "**/.vscode/**"
+    - "**/*.sh"
+    - "**/*.bat"
+  contentRegex: "(MCP_SERVER|MCP_TOKEN|ANTHROPIC_MCP|mcp\\s+serve|runmcp)"
+  evidenceHint: "MCP environment or launch configuration"
+  remediation: "Ensure MCP tokens and server URLs are not exposed. Use secrets management."
+  confidence: 0.5
+

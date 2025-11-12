@@ -1,0 +1,168 @@
+- id: AI-FP-OPENAI-IMPORT
+  title: "OpenAI SDK import detected"
+  severity: "moderate"
+  category: "AI Usage"
+  owasp:
+    - "LLM09: Model Misuse"
+    - "LLM10: Supply Chain"
+  fileGlobs:
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+    - "**/*.py"
+  contentRegex: "(import\\s+openai|from\\s+openai|require\\(['\"\\`]openai['\"\\`]\\)|import\\s+OpenAIApi|from\\s+['\"\\`]openai['\"\\`])"
+  evidenceHint: "openai import"
+  remediation: "Inventory and govern model usage. Ensure keys are secret-managed & usage policies enforced."
+  confidence: 0.9
+- id: AI-FP-ANTHROPIC-IMPORT
+  title: "Anthropic SDK import detected"
+  severity: "moderate"
+  category: "AI Usage"
+  owasp:
+    - "LLM09: Model Misuse"
+    - "LLM10: Supply Chain"
+  fileGlobs:
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+    - "**/*.py"
+  contentRegex: "(import\\s+anthropic|from\\s+anthropic|require\\(['\"\\`]anthropic['\"\\`]\\)|from\\s+['\"\\`]anthropic['\"\\`])"
+  evidenceHint: "anthropic import"
+  remediation: "Track Anthropic usage and ensure API keys are secured."
+  confidence: 0.8
+- id: AI-FP-LANGCHAIN-IMPORT
+  title: "LangChain library detected"
+  severity: "moderate"
+  category: "AI Usage"
+  owasp:
+    - "LLM09: Model Misuse"
+    - "LLM10: Supply Chain"
+  fileGlobs:
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+    - "**/*.py"
+  contentRegex: "(import\\s+langchain|from\\s+langchain|require\\(['\"\\`]langchain['\"\\`]\\)|from\\s+['\"\\`]langchain['\"\\`])"
+  evidenceHint: "langchain import"
+  remediation: "Document LangChain usage and ensure prompt handling policies."
+  confidence: 0.75
+- id: AI-FP-GPT-MODEL
+  title: "GPT model reference detected"
+  severity: "moderate"
+  category: "AI Usage"
+  owasp:
+    - "LLM09: Model Misuse"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(gpt-4|gpt-3\\.5|gpt-4o|gpt-4-turbo)"
+  evidenceHint: "GPT model identifier"
+  remediation: "Document which models are used and ensure usage policies are enforced."
+  confidence: 0.7
+- id: AI-FP-OPENAI-CLIENT
+  title: "OpenAI client instantiation"
+  severity: "moderate"
+  category: "AI Usage"
+  owasp:
+    - "LLM09: Model Misuse"
+    - "LLM06: Sensitive Information Disclosure"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(OpenAI\\(|openai\\.OpenAI|new\\s+OpenAI)"
+  evidenceHint: "OpenAI client creation"
+  remediation: "Ensure API keys are stored securely and not hardcoded."
+  confidence: 0.8
+- id: AI-FP-CHAT-COMPLETION
+  title: "Chat completion API call detected"
+  severity: "moderate"
+  category: "AI Usage"
+  owasp:
+    - "LLM01: Prompt Injection"
+    - "LLM09: Model Misuse"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(chat\\.completions\\.create|createChatCompletion)"
+  evidenceHint: "Chat completion API usage"
+  remediation: "Validate and sanitize user prompts to prevent injection attacks."
+  confidence: 0.85
+- id: AI-MCP-IMPORT
+  title: "Model Context Protocol usage detected"
+  severity: "moderate"
+  category: "AI Tooling"
+  owasp:
+    - "LLM10: Supply Chain"
+    - "LLM05: Excessive Agency"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(from\\s+anthropic\\.mcp|import\\s+(modelcontext|mcp_|@modelcontextprotocol)|McpServer\\s*\\(|class\\s+MCPTransport|class\\s+HTTPTransport|class\\s+SSETransport)"
+  evidenceHint: "MCP client/server import or transport class"
+  remediation: "Review MCP server exposure; restrict reachable tools and audit connector permissions."
+  confidence: 0.65
+- id: AI-MCP-CLIENT
+  title: "MCP client instantiation"
+  severity: "moderate"
+  category: "AI Tooling"
+  owasp:
+    - "LLM10: Supply Chain"
+    - "LLM05: Excessive Agency"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(McpClient\\s*\\()|new\\s+McpClient|createMcpClient|build_transport|HTTPTransport\\s*\\()|SSETransport\\s*\\()"
+  evidenceHint: "MCP client or transport creation"
+  remediation: "Validate MCP server endpoints and authenticate connections. Review which tools are exposed."
+  confidence: 0.7
+- id: AI-MCP-TOOLS
+  title: "MCP tool registration or invocation"
+  severity: "moderate"
+  category: "AI Tooling"
+  owasp:
+    - "LLM05: Excessive Agency"
+    - "LLM01: Prompt Injection"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(\"tools/list\"|\"tools/call\"|\"prompts/list\"|\"prompts/call\"|mcp_initialize|mcp_call|mcp_notify|try_list|listTools|callTool|registerTool|mcp\\.tools\\.|tools\\.call)"
+  evidenceHint: "MCP tool/prompt method call or helper function"
+  remediation: "Audit which tools are registered and validate inputs before tool execution."
+  confidence: 0.7
+- id: AI-MCP-PROTOCOL
+  title: "MCP protocol version or session headers"
+  severity: "low"
+  category: "AI Tooling"
+  owasp:
+    - "LLM10: Supply Chain"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(protocolVersion|Mcp-Session-Id|MCP-Session-Id|clientInfo.*MCP|OpenAI-MCP-Client)"
+  evidenceHint: "MCP protocol version or session identifier"
+  remediation: "Verify MCP protocol version compatibility and session management security."
+  confidence: 0.6

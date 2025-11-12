@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitHub Download Test</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background: #1e1e1e;
+      color: #d4d4d4;
+    }
+    .test {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #444;
+      border-radius: 5px;
+    }
+    .success { border-color: #4caf50; }
+    .error { border-color: #f44336; }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      background: #007acc;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    button:hover { background: #005a9e; }
+    pre {
+      background: #252526;
+      padding: 10px;
+      border-radius: 3px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>GitHub Archive Download Test</h1>
+  <p>Testing different methods to download from GitHub codeload</p>
+  
+  <div>
+    <label>
+      Owner: <input type="text" id="owner" value="eurogig" />
+    </label>
+    <label>
+      Repo: <input type="text" id="repo" value="kagentic" />
+    </label>
+    <label>
+      Branch: <input type="text" id="branch" value="main" />
+    </label>
+  </div>
+
+  <div class="test">
+    <h3>Test 1: codeload.github.com (simple format)</h3>
+    <button onclick="test1()">Test</button>
+    <pre id="result1">Click to test...</pre>
+  </div>
+
+  <div class="test">
+    <h3>Test 2: codeload.github.com (refs/heads format)</h3>
+    <button onclick="test2()">Test</button>
+    <pre id="result2">Click to test...</pre>
+  </div>
+
+  <div class="test">
+    <h3>Test 3: GitHub API archive endpoint</h3>
+    <button onclick="test3()">Test</button>
+    <pre id="result3">Click to test...</pre>
+  </div>
+
+  <div class="test">
+    <h3>Test 4: Direct fetch with CORS mode</h3>
+    <button onclick="test4()">Test</button>
+    <pre id="result4">Click to test...</pre>
+  </div>
+
+  <div class="test">
+    <h3>Test 5: CORS Proxy (corsproxy.io)</h3>
+    <button onclick="test5()">Test</button>
+    <pre id="result5">Click to test...</pre>
+  </div>
+
+  <div class="test">
+    <h3>Test 6: GitHub API with manual redirect</h3>
+    <button onclick="test6()">Test</button>
+    <pre id="result6">Click to test...</pre>
+  </div>
+
+  <div style="margin-top: 30px; padding: 15px; background: #2d2d2d; border-radius: 5px;">
+    <h3>⚠️ Important Notes:</h3>
+    <ul>
+      <li>If you opened this file directly (file://), CORS will block all requests</li>
+      <li>Run this through a web server: <code>python3 -m http.server 8000</code> or <code>npm run dev</code></li>
+      <li>GitHub codeload may block CORS from some origins</li>
+      <li>Test 5 uses a CORS proxy as a workaround</li>
+    </ul>
+  </div>
+
+  <script>
+    function getInputs() {
+      return {
+        owner: document.getElementById('owner').value.trim(),
+        repo: document.getElementById('repo').value.trim(),
+        branch: document.getElementById('branch').value.trim()
+      };
+    }
+
+    function logResult(id, success, message, details = {}) {
+      const el = document.getElementById(id);
+      const testEl = el.closest('.test');
+      testEl.classList.remove('success', 'error');
+      testEl.classList.add(success ? 'success' : 'error');
+      
+      const detailsStr = Object.keys(details).length > 0 
+        ? '\n\nDetails:\n' + JSON.stringify(details, null, 2)
+        : '';
+      el.textContent = `${success ? '✓ SUCCESS' : '✗ FAILED'}: ${message}${detailsStr}`;
+    }
+
+    async function test1() {
+      const { owner, repo, branch } = getInputs();
+      const url = `https://codeload.github.com/${owner}/${repo}/zip/${branch}`;
+      logResult('result1', false, `Testing: ${url}`);
+      
+      try {
+        const start = performance.now();
+        const response = await fetch(url, {
+          method: 'GET',
+          cache: 'no-store'
+        });
+        const duration = (performance.now() - start).toFixed(0);
+        
+        logResult('result1', response.ok, 
+          `Status: ${response.status} ${response.statusText} (${duration}ms)`,
+          {
+            url,
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries()),
+            contentType: response.headers.get('content-type'),
+            contentLength: response.headers.get('content-length')
+          }
+        );
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          logResult('result1', true, 
+            `Downloaded ${(blob.size / 1024).toFixed(2)} KB`,
+            { size: blob.size, type: blob.type }
+          );
+        }
+      } catch (error) {
+        logResult('result1', false, `Error: ${error.message}`, {
+          name: error.name,
+          stack: error.stack
+        });
+      }
+    }
+
+    async function test2() {
+      const { owner, repo, branch } = getInputs();
+      const url = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${branch}`;
+      logResult('result2', false, `Testing: ${url}`);
+      
+      try {
+        const start = performance.now();
+        const response = await fetch(url, {
+          method: 'GET',
+          cache: 'no-store'
+        });
+        const duration = (performance.now() - start).toFixed(0);
+        
+        logResult('result2', response.ok, 
+          `Status: ${response.status} ${response.statusText} (${duration}ms)`,
+          {
+            url,
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries())
+          }
+        );
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          logResult('result2', true, 
+            `Downloaded ${(blob.size / 1024).toFixed(2)} KB`,
+            { size: blob.size }
+          );
+        }
+      } catch (error) {
+        logResult('result2', false, `Error: ${error.message}`, {
+          name: error.name
+        });
+      }
+    }
+
+    async function test3() {
+      const { owner, repo, branch } = getInputs();
+      // GitHub API archive endpoint (requires following redirect)
+      const url = `https://api.github.com/repos/${owner}/${repo}/zipball/${branch}`;
+      logResult('result3', false, `Testing: ${url}`);
+      
+      try {
+        const start = performance.now();
+        const response = await fetch(url, {
+          method: 'GET',
+          cache: 'no-store',
+          redirect: 'follow'
+        });
+        const duration = (performance.now() - start).toFixed(0);
+        
+        logResult('result3', response.ok, 
+          `Status: ${response.status} ${response.statusText} (${duration}ms)`,
+          {
+            url,
+            finalUrl: response.url,
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries())
+          }
+        );
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          logResult('result3', true, 
+            `Downloaded ${(blob.size / 1024).toFixed(2)} KB`,
+            { size: blob.size }
+          );
+        }
+      } catch (error) {
+        logResult('result3', false, `Error: ${error.message}`, {
+          name: error.name
+        });
+      }
+    }
+
+    async function test4() {
+      const { owner, repo, branch } = getInputs();
+      const url = `https://codeload.github.com/${owner}/${repo}/zip/${branch}`;
+      logResult('result4', false, `Testing with explicit CORS: ${url}`);
+      
+      try {
+        const start = performance.now();
+        const response = await fetch(url, {
+          method: 'GET',
+          mode: 'cors',
+          cache: 'no-store',
+          credentials: 'omit'
+        });
+        const duration = (performance.now() - start).toFixed(0);
+        
+        logResult('result4', response.ok, 
+          `Status: ${response.status} ${response.statusText} (${duration}ms)`,
+          {
+            url,
+            status: response.status,
+            statusText: response.statusText,
+            type: response.type,
+            headers: Object.fromEntries(response.headers.entries())
+          }
+        );
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          logResult('result4', true, 
+            `Downloaded ${(blob.size / 1024).toFixed(2)} KB`,
+            { size: blob.size }
+          );
+        }
+      } catch (error) {
+        logResult('result4', false, `Error: ${error.message}`, {
+          name: error.name,
+          message: error.message
+        });
+      }
+    }
+
+    async function test5() {
+      const { owner, repo, branch } = getInputs();
+      const originalUrl = `https://codeload.github.com/${owner}/${repo}/zip/${branch}`;
+      // Using a CORS proxy (note: this is just for testing, not for production)
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(originalUrl)}`;
+      logResult('result5', false, `Testing via CORS proxy: ${originalUrl}`);
+      
+      try {
+        const start = performance.now();
+        const response = await fetch(proxyUrl, {
+          method: 'GET',
+          cache: 'no-store'
+        });
+        const duration = (performance.now() - start).toFixed(0);
+        
+        logResult('result5', response.ok, 
+          `Status: ${response.status} ${response.statusText} (${duration}ms)`,
+          {
+            originalUrl,
+            proxyUrl,
+            status: response.status,
+            statusText: response.statusText
+          }
+        );
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          logResult('result5', true, 
+            `Downloaded ${(blob.size / 1024).toFixed(2)} KB via proxy`,
+            { size: blob.size }
+          );
+        }
+      } catch (error) {
+        logResult('result5', false, `Error: ${error.message}`, {
+          name: error.name,
+          message: error.message
+        });
+      }
+    }
+
+    async function test6() {
+      const { owner, repo, branch } = getInputs();
+      // Try to get the redirect location from GitHub API
+      const apiUrl = `https://api.github.com/repos/${owner}/${repo}/zipball/${branch}`;
+      logResult('result6', false, `Testing GitHub API redirect: ${apiUrl}`);
+      
+      try {
+        // First, try HEAD to get redirect location
+        const headResponse = await fetch(apiUrl, {
+          method: 'HEAD',
+          redirect: 'manual'
+        });
+        
+        if (headResponse.status === 302 || headResponse.status === 301) {
+          const location = headResponse.headers.get('Location');
+          logResult('result6', false, `Got redirect to: ${location}`);
+          
+          if (location) {
+            // Try fetching from the redirect location
+            const fetchResponse = await fetch(location, {
+              method: 'GET',
+              cache: 'no-store'
+            });
+            
+            if (fetchResponse.ok) {
+              const blob = await fetchResponse.blob();
+              logResult('result6', true, 
+                `Downloaded ${(blob.size / 1024).toFixed(2)} KB via redirect`,
+                { redirectUrl: location, size: blob.size }
+              );
+            } else {
+              logResult('result6', false, 
+                `Redirect location failed: ${fetchResponse.status}`,
+                { redirectUrl: location, status: fetchResponse.status }
+              );
+            }
+          }
+        } else {
+          logResult('result6', false, 
+            `No redirect (status: ${headResponse.status})`,
+            { status: headResponse.status }
+          );
+        }
+      } catch (error) {
+        logResult('result6', false, `Error: ${error.message}`, {
+          name: error.name,
+          message: error.message
+        });
+      }
+    }
+  </script>
+</body>
+</html>
+
