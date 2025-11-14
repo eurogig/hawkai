@@ -77,12 +77,28 @@ async function readAsUint8Array(response: Response, onProgress?: DownloadOptions
 async function tryFetch(url: string, options: RequestInit): Promise<Response> {
   try {
     const response = await fetch(url, options);
+    
+    // Safari-specific: Check for CORS failures that don't throw errors
+    // Status 0 or opaque response types indicate CORS/network failures
+    if (response.status === 0 || 
+        response.type === 'opaque' || 
+        response.type === 'opaqueredirect') {
+      console.log("CORS failure detected (status 0 or opaque response), trying CORS proxy...");
+      const proxiedUrl = proxyUrl(url);
+      return await fetch(proxiedUrl, options);
+    }
+    
     // If we get a response (even if not ok), return it
     return response;
   } catch (error) {
     // If it's a CORS/network error (TypeError: Failed to fetch), try with proxy
     const err = error as Error;
-    if (err.name === "TypeError" && (err.message.includes("Failed to fetch") || err.message.includes("fetch"))) {
+    // Safari may use different error messages, so be more permissive
+    if (err.name === "TypeError" || 
+        err.message.includes("Failed to fetch") || 
+        err.message.includes("fetch") ||
+        err.message.includes("Load failed") ||
+        err.message.includes("NetworkError")) {
       console.log("Direct fetch failed, trying CORS proxy...");
       const proxiedUrl = proxyUrl(url);
       return await fetch(proxiedUrl, options);
@@ -113,6 +129,14 @@ export async function downloadRepoArchive(
         cache: "no-store",
         signal
       });
+
+      // Double-check for Safari CORS issues even after tryFetch
+      if (response.status === 0 || response.type === 'opaque' || response.type === 'opaqueredirect') {
+        const errorText = "CORS/network failure (status 0)";
+        errors.push(`${branch}: ${errorText}`);
+        console.warn(`CORS failure for ${branch}, already tried proxy`);
+        continue;
+      }
 
       if (!response.ok) {
         const errorText = response.status === 404 
