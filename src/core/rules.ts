@@ -75,11 +75,16 @@ export function compileRules(ruleDefs: RuleDefinition[]): CompiledRule[] {
 }
 
 function globToRegExp(glob: string): RegExp {
+  // Replace glob patterns BEFORE escaping special characters
+  // This ensures ** and * are processed before being escaped
   let regex = glob
+    .replace(/\*\*/g, "__GLOB_DOUBLESTAR__")
+    .replace(/\*/g, "__GLOB_STAR__")
+    .replace(/\?/g, "__GLOB_QUESTION__")
     .replace(GLOB_TOKEN, "\\$&")
-    .replace(/\*\*/g, "(.*)")
-    .replace(/\*/g, "([^/]*)")
-    .replace(/\?/g, ".");
+    .replace(/__GLOB_DOUBLESTAR__/g, "(.*)")
+    .replace(/__GLOB_STAR__/g, "([^/]*)")
+    .replace(/__GLOB_QUESTION__/g, ".");
   regex = `^${regex}$`;
   return new RegExp(regex, "i");
 }

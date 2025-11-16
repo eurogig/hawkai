@@ -1,0 +1,294 @@
+# Test Repository Catalog for HawkAI Continuous Testing
+# This file contains a curated list of repositories that use agentic AI patterns
+# and frameworks. These repositories serve as test cases to validate our detection rules.
+
+repositories:
+  # ============================================
+  # LangGraph Examples
+  # ============================================
+  - name: "LangGraph Official Examples"
+    url: "https://github.com/langchain-ai/langgraph"
+    branch: "main"
+    description: "Official LangGraph repository with examples and documentation"
+    frameworks: ["langgraph"]
+    languages: ["python", "typescript"]
+    test_categories:
+      - "state_graph"
+      - "conditional_edges"
+      - "agent_workflows"
+      - "streaming"
+      - "multi_agent"
+      - "agent_orchestration"
+    notes: "Primary LangGraph repository with extensive examples including chatbot, multi-agent research, etc."
+
+  - name: "Relari Agent Examples"
+    url: "https://github.com/relari-ai/agent-examples"
+    branch: "main"
+    description: "Multi-agent examples using LangGraph, CrewAI, and OpenAI Swarm"
+    frameworks: ["langgraph", "crewai", "openai-swarm"]
+    languages: ["python"]
+    test_categories:
+      - "multi_agent"
+      - "langgraph_stategraph"
+      - "crewai_crew"
+      - "create_react_agent"
+      - "tool_decorators"
+      - "openai_chat"
+    notes: "Currently tested - good coverage of multiple frameworks - 118 findings"
+
+  # ============================================
+  # LangChain Examples
+  # ============================================
+  - name: "LangChain Official Examples"
+    url: "https://github.com/langchain-ai/langchain"
+    branch: "main"
+    description: "Official LangChain repository with agent examples"
+    frameworks: ["langchain"]
+    languages: ["python", "typescript", "javascript"]
+    test_categories:
+      - "langchain_agents"
+      - "tool_usage"
+      - "chain_invoke"
+      - "lcel_patterns"
+    notes: "Primary LangChain repository with extensive agent examples"
+
+  - name: "LangChain Templates"
+    url: "https://github.com/langchain-ai/langchain-templates"
+    branch: "main"
+    description: "Production-ready LangChain templates including agent patterns"
+    frameworks: ["langchain"]
+    languages: ["python"]
+    test_categories:
+      - "production_agents"
+      - "tool_integration"
+      - "lcel"
+    notes: "Templates for production use cases"
+
+  # ============================================
+  # CrewAI Examples
+  # ============================================
+  - name: "CrewAI Official"
+    url: "https://github.com/joaomdmoura/crewAI"
+    branch: "main"
+    description: "Official CrewAI framework for multi-agent orchestration"
+    frameworks: ["crewai"]
+    languages: ["python"]
+    test_categories:
+      - "crew_creation"
+      - "agent_creation"
+      - "task_definition"
+      - "multi_agent_orchestration"
+      - "rag_integration"
+    notes: "Primary CrewAI repository with comprehensive examples"
+
+  - name: "CrewAI Examples"
+    url: "https://github.com/joaomdmoura/crewAI-examples"
+    branch: "main"
+    description: "CrewAI example projects and use cases"
+    frameworks: ["crewai"]
+    languages: ["python"]
+    test_categories:
+      - "example_crews"
+      - "real_world_applications"
+    notes: "Community examples and use cases"
+
+  # ============================================
+  # AutoGen Examples
+  # ============================================
+  - name: "AutoGen Official"
+    url: "https://github.com/microsoft/autogen"
+    branch: "main"
+    description: "Microsoft AutoGen framework for multi-agent conversation with samples"
+    frameworks: ["autogen"]
+    languages: ["python"]
+    test_categories:
+      - "autogen_agents"
+      - "group_chat"
+      - "code_execution"
+      - "function_calling"
+      - "autogen_patterns"
+      - "agent_examples"
+    notes: "Microsoft's official AutoGen framework with sample applications"
+
+  # ============================================
+  # OpenAI Agent Examples
+  # ============================================
+  - name: "OpenAI Cookbook - Agents"
+    url: "https://github.com/openai/openai-cookbook"
+    branch: "main"
+    description: "OpenAI cookbook with agent examples and patterns"
+    frameworks: ["openai"]
+    languages: ["python"]
+    test_categories:
+      - "openai_assistants"
+      - "function_calling"
+      - "agentic_patterns"
+    notes: "OpenAI's official cookbook with agent examples"
+
+  - name: "OpenAI Swarm Examples"
+    url: "https://github.com/openai/swarm"
+    branch: "main"
+    description: "OpenAI Swarm framework examples"
+    frameworks: ["openai-swarm"]
+    languages: ["python", "typescript"]
+    test_categories:
+      - "swarm_agents"
+      - "multi_agent"
+    notes: "OpenAI's Swarm framework for multi-agent systems"
+
+  # ============================================
+  # Anthropic Claude Examples
+  # ============================================
+  - name: "Anthropic Cookbook"
+    url: "https://github.com/anthropics/anthropic-cookbook"
+    branch: "main"
+    description: "Anthropic Claude examples and agent patterns"
+    frameworks: ["anthropic"]
+    languages: ["python", "typescript"]
+    test_categories:
+      - "claude_agents"
+      - "anthropic_sdk"
+      - "tool_use"
+    notes: "Anthropic's official cookbook with agent examples"
+
+  - name: "Claude API Examples"
+    url: "https://github.com/anthropics/anthropic-sdk-python"
+    branch: "main"
+    description: "Anthropic Python SDK with agent examples"
+    frameworks: ["anthropic"]
+    languages: ["python"]
+    test_categories:
+      - "anthropic_sdk_usage"
+      - "claude_models"
+    notes: "Official Anthropic Python SDK"
+
+  # ============================================
+  # RAG (Retrieval Augmented Generation) Examples
+  # ============================================
+  - name: "LlamaIndex Examples"
+    url: "https://github.com/run-llama/llama_index"
+    branch: "main"
+    description: "LlamaIndex framework with RAG and agent examples"
+    frameworks: ["llamaindex", "rag"]
+    languages: ["python"]
+    test_categories:
+      - "rag_patterns"
+      - "vector_stores"
+      - "retrieval"
+      - "agentic_retrieval"
+    notes: "LlamaIndex with RAG and agent capabilities"
+
+  - name: "Haystack Examples"
+    url: "https://github.com/deepset-ai/haystack"
+    branch: "main"
+    description: "Haystack framework for building RAG applications"
+    frameworks: ["haystack", "rag"]
+    languages: ["python"]
+    test_categories:
+      - "rag_pipelines"
+      - "retrieval_augmentation"
+    notes: "Haystack RAG framework"
+
+  # ============================================
+  # Semantic Kernel Examples
+  # ============================================
+  - name: "Semantic Kernel"
+    url: "https://github.com/microsoft/semantic-kernel"
+    branch: "main"
+    description: "Microsoft Semantic Kernel for AI agent development"
+    frameworks: ["semantic-kernel"]
+    languages: ["python", "csharp", "typescript"]
+    test_categories:
+      - "semantic_kernel_agents"
+      - "plugin_patterns"
+      - "orchestration"
+    notes: "Microsoft's Semantic Kernel framework"
+
+  # ============================================
+  # DSPy Examples
+  # ============================================
+  - name: "DSPy Official"
+    url: "https://github.com/stanfordnlp/dspy"
+    branch: "main"
+    description: "DSPy framework for programming with foundation models"
+    frameworks: ["dspy"]
+    languages: ["python"]
+    test_categories:
+      - "dspy_programs"
+      - "agentic_patterns"
+    notes: "Stanford's DSPy framework"
+
+  # ============================================
+  # Multi-Framework Examples
+  # ============================================
+  - name: "AgentPilot"
+    url: "https://github.com/AgentPilot/AgentPilot"
+    branch: "main"
+    description: "Multi-agent framework supporting multiple backends"
+    frameworks: ["langchain", "openai", "anthropic"]
+    languages: ["python"]
+    test_categories:
+      - "multi_framework"
+      - "agent_orchestration"
+    notes: "Agent framework supporting multiple providers"
+
+  - name: "ChatDev"
+    url: "https://github.com/OpenBMB/ChatDev"
+    branch: "main"
+    description: "Multi-agent framework for software development"
+    frameworks: ["multi-agent"]
+    languages: ["python"]
+    test_categories:
+      - "multi_agent"
+      - "autonomous_agents"
+      - "code_generation"
+    notes: "Multi-agent system for software development"
+
+  # ============================================
+  # Smaller Example Repositories
+  # ============================================
+  # Note: Removed subdirectory-specific entries as they duplicate main repo
+  # LangGraph chatbot and multi-agent research examples are in main langgraph repo
+
+metadata:
+  version: "1.0.0"
+  last_updated: "2025-01-16"
+  total_repositories: 23
+  framework_breakdown:
+    langgraph: 5
+    langchain: 3
+    crewai: 2
+    autogen: 2
+    openai: 2
+    anthropic: 2
+    rag: 2
+    semantic-kernel: 1
+    dspy: 1
+    multi-agent: 3
+  
+  test_priorities:
+    high:
+      - "relari-ai/agent-examples"
+      - "langchain-ai/langgraph"
+      - "joaomdmoura/crewAI"
+      - "microsoft/autogen"
+    medium:
+      - "langchain-ai/langchain"
+      - "openai/openai-cookbook"
+      - "anthropics/anthropic-cookbook"
+    low:
+      - "All others for comprehensive coverage"
+  
+  update_notes: |
+    This catalog should be periodically reviewed and updated as:
+    1. New agent frameworks emerge
+    2. Existing frameworks add new patterns
+    3. Community examples demonstrate new use cases
+    4. We discover additional high-quality test repositories
+    
+    Repositories should be tested regularly to ensure:
+    - URLs are still valid
+    - Branch names are correct
+    - Code patterns still exist
+    - Detection rules are working correctly
+

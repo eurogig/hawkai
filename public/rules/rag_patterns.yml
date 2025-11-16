@@ -85,7 +85,7 @@
     - "**/*.tsx"
     - "**/*.js"
     - "**/*.jsx"
-  contentRegex: "(RetrievalQA|ConversationalRetrievalChain|RetrievalQAWithSourcesChain|RAG|retrieval.*augmented|from_chain_type.*retrieval|load_qa_chain.*retriever)"
+  contentRegex: "(RetrievalQA|ConversationalRetrievalChain|RetrievalQAWithSourcesChain|\\bRAG\\b\\s+(chain|system|pipeline|pattern|implementation|retrieval|augmented|model)|\\bRAGChain|\\bRAGSystem|\\bRAGPipeline|\\bRAGModel|\\bRAGRetriever|rag_chain|rag_system|rag_pipeline|create_rag|build_rag|setup_rag|initialize_rag|retrieval.*augmented|retrieval-augmented|from_chain_type.*retrieval|load_qa_chain.*retriever)"
   evidenceHint: "RAG chain pattern"
   remediation: "Implement strict validation of retrieved context. Monitor for prompt injection via retrieved data. Audit data sources in vector database."
   confidence: 0.85
