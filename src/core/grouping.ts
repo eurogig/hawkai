@@ -129,6 +129,62 @@ export function groupFindings(findings: Finding[]): FindingGroup[] {
     groups.push(...fileGroups);
   }
   
+  // Phase 2: compute composite scores and adjust severities
+  for (const group of groups) {
+    const contributing: NonNullable<FindingGroup["contributingSignals"]> = [];
+    const primaryRel = RULE_RELATIONSHIPS[group.primaryFinding.ruleId];
+    const primaryRole = primaryRel?.type ?? "usage";
+    const primaryWeight = baseWeightForRole(primaryRole) * group.primaryFinding.confidence;
+    contributing.push({
+      ruleId: group.primaryFinding.ruleId,
+      weight: baseWeightForRole(primaryRole),
+      confidence: group.primaryFinding.confidence,
+      role: primaryRole
+    });
+    let score = primaryWeight;
+    let usageCount = primaryRole === "usage" ? 1 : 0;
+    let hintCount = primaryRole === "hint" ? 1 : 0;
+    let metadataCount = primaryRole === "metadata" ? 1 : 0;
+    // Add related findings with diminishing returns
+    const MAX_RELATED = 6;
+    const relatedLimited = group.relatedFindings.slice(0, MAX_RELATED);
+    relatedLimited.forEach((f, idx) => {
+      const rel = RULE_RELATIONSHIPS[f.ruleId];
+      const role = rel?.type ?? "hint";
+      const w = baseWeightForRole(role);
+      // diminishing factor for later signals
+      const diminish = 1 / (1 + idx * 0.35);
+      score += w * f.confidence * diminish;
+      contributing.push({ ruleId: f.ruleId, weight: w, confidence: f.confidence, role });
+      if (role === "usage") usageCount += 1;
+      if (role === "hint") hintCount += 1;
+      if (role === "metadata") metadataCount += 1;
+    });
+    // Boosts for corroboration (usage + hints)
+    if (usageCount >= 1 && hintCount >= 1) {
+      score *= 1.15;
+    }
+    // Small bonus if metadata present with usage
+    if (usageCount >= 1 && metadataCount >= 1) {
+      score *= 1.05;
+    }
+    // Demotions: test/examples directories
+    if (isTestOrExamplePath(group.file)) {
+      score *= 0.85;
+    }
+    // Demotions: loop-only agent patterns without invoke/stream usage corroboration
+    if (isLoopOnlyGroup(group, contributing)) {
+      score *= 0.8;
+    }
+    // Clamp to [0,1]
+    score = Math.max(0, Math.min(1, score));
+    group.compositeScore = score;
+    group.contributingSignals = contributing;
+    // Map composite score to severity if higher than current
+    const mapped = scoreToSeverity(score);
+    // choose the max of existing severity and mapped severity
+    group.severity = severityToNumber(mapped) > severityToNumber(group.severity) ? mapped : group.severity;
+  }
   return groups;
 }
 
@@ -307,6 +363,58 @@ function boostSeverity(severity: Severity, boost: number): Severity {
   const current = levels.indexOf(severity);
   const boosted = Math.min(current + boost, levels.length - 1);
   return levels[boosted] as Severity;
+}
+
+function baseWeightForRole(role: "usage" | "hint" | "metadata"): number {
+  switch (role) {
+    case "usage":
+      return 0.75;
+    case "hint":
+      return 0.45;
+    case "metadata":
+      return 0.3;
+    default:
+      return 0.4;
+  }
+}
+
+function scoreToSeverity(score: number): Severity {
+  if (score >= 0.9) return "critical";
+  if (score >= 0.7) return "high";
+  if (score >= 0.5) return "moderate";
+  return "low";
+}
+
+function isTestOrExamplePath(path: string): boolean {
+  const lower = path.toLowerCase();
+  return (
+    lower.includes("/test/") ||
+    lower.includes("/tests/") ||
+    lower.includes("__tests__") ||
+    lower.includes("/example/") ||
+    lower.includes("/examples/")
+  );
+}
+
+function isLoopOnlyGroup(
+  group: FindingGroup,
+  signals: NonNullable<FindingGroup["contributingSignals"]>
+): boolean {
+  const loopRuleIds = new Set([
+    "AG-LOOP-AUTOEXEC",
+    "AG-LOOP-WITH-AGENT",
+    "AG-ASYNC-AGENT-LOOP"
+  ]);
+  const corroboratingUsage = new Set([
+    "AG-LANGGRAPH-INVOKE",
+    "AG-LANGGRAPH-STREAM",
+    "AG-LANGCHAIN-INVOKE"
+  ]);
+  const allRuleIds = new Set<string>([group.primaryFinding.ruleId]);
+  signals.forEach(s => allRuleIds.add(s.ruleId));
+  const hasLoop = [...allRuleIds].some(id => loopRuleIds.has(id));
+  const hasCorroboration = [...allRuleIds].some(id => corroboratingUsage.has(id));
+  return hasLoop && !hasCorroboration;
 }
 
 /**
