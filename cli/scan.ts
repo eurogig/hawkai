@@ -24,6 +24,8 @@ interface CLIArgs {
   branch?: string;
   output?: "json" | "text" | "summary";
   verbose?: boolean;
+  graph?: "json" | "dot" | "mermaid";
+  graphOnly?: boolean;
 }
 
 function parseArgs(): CLIArgs {
@@ -42,6 +44,10 @@ function parseArgs(): CLIArgs {
       parsed.output = args[++i] as "json" | "text" | "summary";
     } else if (arg === "--verbose" || arg === "-v") {
       parsed.verbose = true;
+    } else if (arg === "--graph") {
+      parsed.graph = args[++i] as "json" | "dot" | "mermaid";
+    } else if (arg === "--graph-only") {
+      parsed.graphOnly = true;
     } else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -69,12 +75,15 @@ Usage:
 Options:
   -b, --branch <branch>    Specify branch to scan (default: auto-detect)
   -o, --output <format>    Output format: json, text, or summary (default: summary)
+      --graph <format>     Emit reachability graph: json, dot, mermaid (optional)
+      --graph-only         Output only the graph (requires --graph)
   -v, --verbose            Show detailed progress
   -h, --help               Show this help message
 
 Examples:
   npm run scan -- https://github.com/user/repo
   npm run scan -- https://github.com/user/repo --branch main --output json
+  npm run scan -- https://github.com/user/repo --graph mermaid --graph-only
   npm run scan -- https://github.com/user/repo --verbose
 
 Output Formats:
@@ -300,6 +309,26 @@ async function main() {
     
     log(`[INFO] Scan complete! Found ${result.findings.length} findings`);
     
+    // Optional: build reachability graph
+    let graphOutput = "";
+    if (args.graph) {
+      const { buildCoarseGraph, toDot, toMermaid } = await import("../src/core/reachability.js");
+      const groups = report.groups || [];
+      const graph = buildCoarseGraph(groups);
+      if (args.graph === "json") {
+        graphOutput = JSON.stringify(graph, null, 2);
+      } else if (args.graph === "dot") {
+        graphOutput = toDot(graph);
+      } else if (args.graph === "mermaid") {
+        graphOutput = toMermaid(graph);
+      }
+    }
+
+    if (args.graphOnly && args.graph) {
+      console.log(graphOutput);
+      return;
+    }
+
     // Flatten findings from groups for output
     const allFindings: Finding[] = [];
     
@@ -352,6 +381,10 @@ async function main() {
     }
     
     console.log(output);
+    if (graphOutput) {
+      console.log("\n--- Reachability Graph ---\n");
+      console.log(graphOutput);
+    }
     
   } catch (error) {
     console.error("\n[ERROR] Scan failed:", (error as Error).message);
