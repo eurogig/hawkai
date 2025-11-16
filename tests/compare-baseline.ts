@@ -88,6 +88,7 @@ async function main() {
     const lower = Math.floor(base.expectedFindings * (1 - tolerance));
     const upper = Math.ceil(base.expectedFindings * (1 + tolerance));
     const ok = totalFindings >= lower && totalFindings <= upper;
+    console.log(`[BASELINE] ${base.name} (${slug}) expected=${base.expectedFindings} actual=${totalFindings} range=[${lower}, ${upper}] -> ${ok ? "OK" : "FAIL"}`);
     results.push({ name: base.name, slug, expected: base.expectedFindings, actual: totalFindings, ok });
     if (!ok) failed += 1;
   }

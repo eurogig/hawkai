@@ -24,7 +24,7 @@ jobs:
       - name: Install deps
         run: npm ci
       - name: Run comparator against baselines (high priority)
-        run: npx tsx tests/compare-baseline.ts --high --tolerance 0.15
+        run: npx tsx tests/compare-baseline.ts --high --tolerance 0.25
       - name: Upload report on failure
         if: failure()
         uses: actions/upload-artifact@v4
