@@ -3,6 +3,7 @@ import { downloadRepoArchive, resolveDefaultBranch } from "./github";
 import { loadRuleIndex, compileRules } from "./rules";
 import { createReport, scanArchive } from "./scanner";
 import type { ProgressState, Report, ScanContext, RulePackIndex } from "@/types";
+import { setScoringConfig } from "./scoring";
 
 export interface ScanCallbacks {
   onState?: (state: ProgressState) => void;
@@ -61,6 +62,19 @@ export async function performScan(
   emit({ step: "scanning", message: "Loading rule packs" });
   const { rules: ruleDefs, owasp } = await loadRuleIndex(signal);
   const compiledRules = compileRules(ruleDefs);
+
+  // Try to load scoring config at runtime (optional)
+  try {
+    const baseUrl = import.meta.env.BASE_URL;
+    const cfgUrl = `${baseUrl}config/scoring.json`.replace(/\/+/g, "/");
+    const resp = await fetch(cfgUrl, { cache: "no-store", signal });
+    if (resp.ok) {
+      const cfg = await resp.json();
+      setScoringConfig(cfg);
+    }
+  } catch {
+    // ignore; fall back to defaults
+  }
 
   const result = scanArchive(context, buffer, compiledRules, {
     onProgress({ currentFile, scanned, total }) {

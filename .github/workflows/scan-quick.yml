@@ -1,0 +1,39 @@
+name: Scan Quick (High Priority)
+
+on:
+  push:
+    branches:
+      - main
+      - feature/phase2-multisignal-scoring-and-grouping
+  pull_request:
+    branches:
+      - main
+      - feature/phase2-multisignal-scoring-and-grouping
+
+jobs:
+  scan-quick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install deps
+        run: npm ci
+      - name: Run comparator against baselines (high priority)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx tsx tests/compare-baseline.ts --high --tolerance 0.25
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-quick-artifacts
+          path: |
+            scan-results.json
+            scan-diff.json
+
+

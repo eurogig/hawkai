@@ -1,0 +1,31 @@
+{
+  "tolerancePct": 0.15,
+  "repos": [
+    {
+      "name": "LangGraph Official Examples",
+      "slug": "langchain-ai/langgraph",
+      "expectedFindings": 3503
+    },
+    {
+      "name": "Relari Agent Examples",
+      "slug": "relari-ai/agent-examples",
+      "expectedFindings": 93
+    },
+    {
+      "name": "CrewAI Official",
+      "slug": "joaomdmoura/crewAI",
+      "expectedFindings": 7793
+    },
+    {
+      "name": "CrewAI Examples",
+      "slug": "joaomdmoura/crewAI-examples",
+      "expectedFindings": 473
+    },
+    {
+      "name": "AutoGen Official",
+      "slug": "microsoft/autogen",
+      "expectedFindings": 7039
+    }
+  ]
+}
+

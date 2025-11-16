@@ -167,6 +167,19 @@ function formatSummary(report: any, findings: Finding[]): string {
           : finding.evidence;
         lines.push(`     Evidence: ${evidence}`);
       }
+      // Show brief "why" summary using grouped signals if available
+      const group = report.groups?.find((g: any) => g.primaryFinding?.id === finding.id);
+      if (group?.compositeScore != null) {
+        const scorePct = Math.round(group.compositeScore * 100);
+        lines.push(`     Confidence: ${scorePct}% (composite)`);
+        if (Array.isArray(group.contributingSignals) && group.contributingSignals.length > 0) {
+          const top = group.contributingSignals
+            .slice(0, 3)
+            .map((s: any) => `${s.role}:${s.ruleId}`)
+            .join(", ");
+          lines.push(`     Why: ${top}`);
+        }
+      }
     });
     
     if (findings.length > 10) {
@@ -199,6 +212,19 @@ function formatText(report: any, findings: Finding[]): string {
         lines.push(`   OWASP: ${finding.owasp.join(", ")}`);
       }
       lines.push(`   Confidence: ${(finding.confidence * 100).toFixed(0)}%`);
+      // Include composite scoring details if available
+      const group = report.groups?.find((g: any) => g.primaryFinding?.id === finding.id);
+      if (group?.compositeScore != null) {
+        const scorePct = Math.round(group.compositeScore * 100);
+        lines.push(`   Composite: ${scorePct}%`);
+        if (Array.isArray(group.contributingSignals) && group.contributingSignals.length > 0) {
+          const top = group.contributingSignals
+            .slice(0, 5)
+            .map((s: any) => `${s.role}:${s.ruleId}(${Math.round(s.confidence * 100)}%)`)
+            .join(", ");
+          lines.push(`   Signals: ${top}`);
+        }
+      }
     });
   }
   

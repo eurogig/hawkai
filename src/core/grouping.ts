@@ -1,4 +1,5 @@
 import type { Finding, FindingGroup, Severity } from "@/types";
+import { applyDemotions, applyBoosts, baseWeightForRole, scoreToSeverity, getScoringConfig } from "@/core/scoring";
 
 /**
  * Rule relationships: which rules are "hints" (imports, config) vs "usage" (actual calls)
@@ -129,6 +130,53 @@ export function groupFindings(findings: Finding[]): FindingGroup[] {
     groups.push(...fileGroups);
   }
   
+  // Phase 2: compute composite scores and adjust severities
+  for (const group of groups) {
+    const contributing: NonNullable<FindingGroup["contributingSignals"]> = [];
+    const primaryRel = RULE_RELATIONSHIPS[group.primaryFinding.ruleId];
+    const primaryRole = primaryRel?.type ?? "usage";
+    const primaryWeight = baseWeightForRole(primaryRole) * group.primaryFinding.confidence;
+    contributing.push({
+      ruleId: group.primaryFinding.ruleId,
+      weight: baseWeightForRole(primaryRole),
+      confidence: group.primaryFinding.confidence,
+      role: primaryRole
+    });
+    let score = primaryWeight;
+    let usageCount = primaryRole === "usage" ? 1 : 0;
+    let hintCount = primaryRole === "hint" ? 1 : 0;
+    let metadataCount = primaryRole === "metadata" ? 1 : 0;
+    // Add related findings with diminishing returns
+    const MAX_RELATED = getRelatedCap();
+    const relatedLimited = group.relatedFindings.slice(0, MAX_RELATED);
+    relatedLimited.forEach((f, idx) => {
+      const rel = RULE_RELATIONSHIPS[f.ruleId];
+      const role = rel?.type ?? "hint";
+      const w = baseWeightForRole(role);
+      // diminishing factor for later signals
+      const diminish = 1 / (1 + idx * 0.35);
+      score += w * f.confidence * diminish;
+      contributing.push({ ruleId: f.ruleId, weight: w, confidence: f.confidence, role });
+      if (role === "usage") usageCount += 1;
+      if (role === "hint") hintCount += 1;
+      if (role === "metadata") metadataCount += 1;
+    });
+    // Boosts & demotions via config
+    score = applyBoosts(score, usageCount, hintCount, metadataCount);
+    score = applyDemotions(score, {
+      isTestOrExamplePath: isTestOrExamplePath(group.file),
+      loopOnlyWithoutInvoke: isLoopOnlyGroup(group, contributing),
+      isMockLikePath: isMockLikePath(group.file)
+    });
+    // Clamp to [0,1]
+    score = Math.max(0, Math.min(1, score));
+    group.compositeScore = score;
+    group.contributingSignals = contributing;
+    // Map composite score to severity if higher than current
+    const mapped = scoreToSeverity(score);
+    // choose the max of existing severity and mapped severity
+    group.severity = severityToNumber(mapped) > severityToNumber(group.severity) ? mapped : group.severity;
+  }
   return groups;
 }
 
@@ -182,10 +230,12 @@ function groupFileFindings(file: string, findings: Finding[]): FindingGroup[] {
   for (const [ruleId, ruleUsageFindings] of usageByRule.entries()) {
     if (ruleUsageFindings.length === 0) continue;
     
-    // Use the first finding as primary (or highest severity)
-    const primary = ruleUsageFindings.reduce((a, b) => 
-      severityToNumber(a.severity) > severityToNumber(b.severity) ? a : b
-    );
+    // Choose a primary based on severity, confidence, and invoke/endpoint preference
+    const primary = ruleUsageFindings.reduce((best, cand) => {
+      const bestScore = primaryCandidateScore(best);
+      const candScore = primaryCandidateScore(cand);
+      return candScore > bestScore ? cand : best;
+    });
     
     // Collect all related findings for this rule type
     const relatedSet = new Set<string>(); // Use Set to deduplicate by ID
@@ -225,24 +275,67 @@ function groupFileFindings(file: string, findings: Finding[]): FindingGroup[] {
     const riskBoost = related.length > 0 ? 1 : 0;
     const severity = boostSeverity(primary.severity, riskBoost);
     
-    // If multiple usage findings of same type, include them as related
-    const otherUsages = ruleUsageFindings.filter(u => u.id !== primary.id);
+    // If multiple usage findings of same type, include a limited subset as related (prefer proximity to primary)
+    const otherUsagesAll = ruleUsageFindings.filter(u => u.id !== primary.id);
+    const otherUsages = otherUsagesAll
+      .sort((a, b) => Math.abs((a.line ?? 0) - (primary.line ?? 0)) - Math.abs((b.line ?? 0) - (primary.line ?? 0)))
+      .slice(0, 3);
     
+    // Compute composite score and apply min-evidence floor for non-usage groups later
+    const groupsBeforePushLen = groups.length;
+    const contributing: NonNullable<FindingGroup["contributingSignals"]> = [];
+    const primaryRel = RULE_RELATIONSHIPS[primary.ruleId];
+    const primaryRole = primaryRel?.type ?? "usage";
+    let usageCount = primaryRole === "usage" ? 1 : 0;
+    let hintCount = primaryRole === "hint" ? 1 : 0;
+    let metadataCount = primaryRole === "metadata" ? 1 : 0;
+    const MAX_RELATED = getRelatedCap();
+    const relatedLimited = [...related, ...otherUsages].slice(0, MAX_RELATED);
+    let score = baseWeightForRole(primaryRole) * primary.confidence;
+    contributing.push({ ruleId: primary.ruleId, weight: baseWeightForRole(primaryRole), confidence: primary.confidence, role: primaryRole });
+    relatedLimited.forEach((f, idx) => {
+      const relType = RULE_RELATIONSHIPS[f.ruleId]?.type ?? "hint";
+      const w = baseWeightForRole(relType);
+      const diminish = 1 / (1 + idx * 0.35);
+      score += w * f.confidence * diminish;
+      contributing.push({ ruleId: f.ruleId, weight: w, confidence: f.confidence, role: relType });
+      if (relType === "usage") usageCount++;
+      if (relType === "hint") hintCount++;
+      if (relType === "metadata") metadataCount++;
+    });
+    score = applyBoosts(score, usageCount, hintCount, metadataCount);
+    score = applyDemotions(score, {
+      isTestOrExamplePath: isTestOrExamplePath(primary.file),
+      loopOnlyWithoutInvoke: isLoopOnlyGroup({ id: "", primaryFinding: primary, relatedFindings: relatedLimited, file, severity, category: primary.category, riskBoost, } as any, contributing),
+      isMockLikePath: isMockLikePath(primary.file)
+    });
+    const thresholds = getScoringConfig().thresholds;
+    const mapped = scoreToSeverity(Math.max(0, Math.min(1, score)));
+    const finalSeverity = severityToNumber(mapped) > severityToNumber(severity) ? mapped : severity;
+    // enforce min-evidence floor for non-usage groups (shouldn't apply here since we are in usage grouping)
+    // push group
     groups.push({
       id: `group-${file}-${ruleId}`,
       primaryFinding: primary,
-      relatedFindings: [...related, ...otherUsages], // Include other same-type usages and hints
+      relatedFindings: relatedLimited,
       file: primary.file,
-      severity,
+      severity: finalSeverity,
       category: primary.category,
-      riskBoost
+      riskBoost,
+      compositeScore: Math.max(0, Math.min(1, score)),
+      contributingSignals: contributing
     });
   }
   
   // Handle standalone hints (no usage found)
   for (const hint of hintFindings) {
     if (processed.has(hint.id)) continue;
-    
+    const thresholds2 = getScoringConfig().thresholds;
+    const comp = baseWeightForRole("hint") * (hint.confidence ?? 0.5);
+    if (comp < (thresholds2.minGroup ?? 0)) {
+      processed.add(hint.id);
+      continue;
+    }
     groups.push({
       id: `group-${hint.id}`,
       primaryFinding: hint,
@@ -250,7 +343,9 @@ function groupFileFindings(file: string, findings: Finding[]): FindingGroup[] {
       file: hint.file,
       severity: hint.severity,
       category: hint.category,
-      riskBoost: 0
+      riskBoost: 0,
+      compositeScore: comp,
+      contributingSignals: [{ ruleId: hint.ruleId, weight: baseWeightForRole("hint"), confidence: hint.confidence, role: "hint" }]
     });
     processed.add(hint.id);
   }
@@ -307,6 +402,72 @@ function boostSeverity(severity: Severity, boost: number): Severity {
   const current = levels.indexOf(severity);
   const boosted = Math.min(current + boost, levels.length - 1);
   return levels[boosted] as Severity;
+}
+
+function primaryCandidateScore(f: Finding): number {
+  // Base on severity + confidence; prefer invoke/stream/endpoint rules slightly
+  const sev = severityToNumber(f.severity);
+  const base = sev * 0.6 + (f.confidence ?? 0) * 0.4;
+  const id = f.ruleId;
+  const prefer = (
+    id === "AG-LANGGRAPH-INVOKE" ||
+    id === "AG-LANGGRAPH-STREAM" ||
+    id === "AI-FP-OPENAI-ENDPOINT" ||
+    id === "AG-LANGCHAIN-INVOKE"
+  ) ? 0.15 : 0;
+  return base + prefer;
+}
+
+function getRelatedCap(): number {
+  try {
+    return getScoringConfig().caps.perGroupRelated;
+  } catch {
+    return 6;
+  }
+}
+
+function isTestOrExamplePath(path: string): boolean {
+  const lower = path.toLowerCase();
+  return (
+    lower.includes("/test/") ||
+    lower.includes("/tests/") ||
+    lower.includes("__tests__") ||
+    lower.includes("/example/") ||
+    lower.includes("/examples/")
+  );
+}
+
+function isLoopOnlyGroup(
+  group: FindingGroup,
+  signals: NonNullable<FindingGroup["contributingSignals"]>
+): boolean {
+  const loopRuleIds = new Set([
+    "AG-LOOP-AUTOEXEC",
+    "AG-LOOP-WITH-AGENT",
+    "AG-ASYNC-AGENT-LOOP"
+  ]);
+  const corroboratingUsage = new Set([
+    "AG-LANGGRAPH-INVOKE",
+    "AG-LANGGRAPH-STREAM",
+    "AG-LANGCHAIN-INVOKE"
+  ]);
+  const allRuleIds = new Set<string>([group.primaryFinding.ruleId]);
+  signals.forEach(s => allRuleIds.add(s.ruleId));
+  const hasLoop = [...allRuleIds].some(id => loopRuleIds.has(id));
+  const hasCorroboration = [...allRuleIds].some(id => corroboratingUsage.has(id));
+  return hasLoop && !hasCorroboration;
+}
+
+function isMockLikePath(p: string): boolean {
+  const lower = p.toLowerCase();
+  return (
+    lower.includes("/__mocks__/") ||
+    lower.includes("/mocks/") ||
+    lower.includes("/mock/") ||
+    lower.includes("/stubs/") ||
+    lower.includes("/fixtures/") ||
+    lower.includes("/samples/")
+  );
 }
 
 /**

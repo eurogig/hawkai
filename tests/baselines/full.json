@@ -1,0 +1,65 @@
+{
+  "tolerancePct": 0.3,
+  "repos": [
+    {
+      "name": "LangChain (Python)",
+      "slug": "langchain-ai/langchain",
+      "expectedFindings": 18692
+    },
+    {
+      "name": "LangChainJS (TS/JS)",
+      "slug": "langchain-ai/langchainjs",
+      "expectedFindings": 16435
+    },
+    {
+      "name": "LlamaIndex",
+      "slug": "run-llama/llama_index",
+      "expectedFindings": 8275
+    },
+    {
+      "name": "Haystack",
+      "slug": "deepset-ai/haystack",
+      "expectedFindings": 5083
+    },
+    {
+      "name": "Semantic Kernel",
+      "slug": "microsoft/semantic-kernel",
+      "expectedFindings": 13136
+    },
+    {
+      "name": "DSPy",
+      "slug": "stanfordnlp/dspy",
+      "expectedFindings": 1730
+    },
+    {
+      "name": "OpenAI Cookbook",
+      "slug": "openai/openai-cookbook",
+      "expectedFindings": 247
+    },
+    {
+      "name": "OpenAI Swarm",
+      "slug": "openai/swarm",
+      "expectedFindings": 177
+    },
+    {
+      "name": "Amazon Bedrock Samples",
+      "slug": "aws-samples/amazon-bedrock-samples",
+      "expectedFindings": 651
+    },
+    {
+      "name": "Google Generative AI (Python)",
+      "slug": "google-gemini/generative-ai-python",
+      "expectedFindings": 1101
+    },
+    {
+      "name": "Negative Control: Flask",
+      "slug": "pallets/flask",
+      "expectedFindings": 3
+    },
+    {
+      "name": "Negative Control: Next.js Examples",
+      "slug": "vercel/next.js",
+      "expectedFindings": -1
+    }
+  ]
+}

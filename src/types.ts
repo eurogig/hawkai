@@ -60,6 +60,14 @@ export interface FindingGroup {
   severity: Severity;
   category: string;
   riskBoost: number;
+  // Phase 2: composite scoring for multi-signal confidence
+  compositeScore?: number; // 0..1 combined confidence from multiple signals
+  contributingSignals?: Array<{
+    ruleId: string;
+    weight: number;
+    confidence: number;
+    role: "usage" | "hint" | "metadata";
+  }>;
 }
 
 export interface Report {

@@ -13,6 +13,7 @@ import type {
 import { computeRiskScore } from "./score";
 import { repoSlug } from "./url";
 import { groupFindings } from "./grouping";
+import { getScoringConfig } from "./scoring";
 
 export interface ScanOptions {
   onProgress?: (update: { currentFile: string; scanned: number; total: number }) => void;
@@ -123,6 +124,7 @@ export function compileRuleDefinitions(defs: RuleDefinition[]): CompiledRule[] {
 
 export function applyRulesToFile(path: string, content: string, rules: CompiledRule[]): Finding[] {
   const findings: Finding[] = [];
+  const MAX_FILE_FINDINGS = getScoringConfig().caps.perFileFindings; // performance cap to avoid pathological files
 
   for (const rule of rules) {
     if (!ruleAppliesToPath(rule, path)) continue;
@@ -132,6 +134,24 @@ export function applyRulesToFile(path: string, content: string, rules: CompiledR
     while (match) {
       const line = getLineNumber(content, match.index);
       const evidence = sanitizeEvidence(match[0] ?? "", rule);
+      // Heuristic: reduce confidence for matches that appear in comment-only lines
+      let effConfidence = rule.confidence;
+      if (line != null) {
+        const lineStart = content.lastIndexOf("\n", Math.max(0, match.index - 1)) + 1;
+        const lineEndIdx = content.indexOf("\n", match.index);
+        const lineEnd = lineEndIdx === -1 ? content.length : lineEndIdx;
+        const lineText = content.slice(lineStart, lineEnd);
+        const trimmed = lineText.trim();
+        const idxInLine = match.index - lineStart;
+        const commentPosSlash = lineText.indexOf("//");
+        const commentPosHash = lineText.indexOf("#");
+        const inSlashComment = commentPosSlash !== -1 && commentPosSlash <= idxInLine;
+        const inHashComment = commentPosHash !== -1 && commentPosHash <= idxInLine;
+        const startsWithComment = trimmed.startsWith("#") || trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*");
+        if (startsWithComment || inSlashComment || inHashComment) {
+          effConfidence = Math.max(0, effConfidence * 0.6);
+        }
+      }
       findings.push({
         id: `${rule.id}-${path}-${line ?? 0}-${match.index}`,
         ruleId: rule.id,
@@ -143,9 +163,15 @@ export function applyRulesToFile(path: string, content: string, rules: CompiledR
         line,
         evidence,
         remediation: rule.remediation,
-        confidence: rule.confidence
+        confidence: effConfidence
       });
+      if (findings.length >= MAX_FILE_FINDINGS) {
+        return findings;
+      }
       match = rule.regex.exec(content);
+    }
+    if (findings.length >= MAX_FILE_FINDINGS) {
+      break;
     }
   }
 

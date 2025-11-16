@@ -92,6 +92,16 @@ The GitHub Actions workflow (`.github/workflows/deploy.yml`) will automatically 
 
 Rule packs live under `public/rules` in YAML format. Update `index.json` when adding new packs. Each rule includes metadata such as severity, OWASP categories, remediation, and confidence. YAML is parsed at runtime and compiled to regular expressions.
 
+## Scoring & Confidence
+
+HawkAI uses multi-signal confidence scoring with grouping, boosts/demotions, and severity mapping. All knobs are tunable at runtime via `public/config/scoring.json`. See:
+- `docs/scoring-and-confidence.md`
+
+## CI & Baselines
+
+Quick and nightly workflows validate scans against golden baselines with tolerances. Learn how to add repos, run locally, and update baselines:
+- `docs/ci-and-baselines.md`
+
 ## Exports
 
 - **Markdown:** Generated client-side and downloaded as a `.md` file.
