@@ -1,5 +1,5 @@
 import type { Finding, FindingGroup, Severity } from "@/types";
-import { applyDemotions, applyBoosts, baseWeightForRole, scoreToSeverity } from "@/core/scoring";
+import { applyDemotions, applyBoosts, baseWeightForRole, scoreToSeverity, getScoringConfig } from "@/core/scoring";
 
 /**
  * Rule relationships: which rules are "hints" (imports, config) vs "usage" (actual calls)
