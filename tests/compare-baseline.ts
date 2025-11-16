@@ -5,7 +5,7 @@
  * Usage:
  *   npx tsx tests/compare-baseline.ts --high --tolerance 0.15
  */
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import YAML from "yaml";
@@ -20,12 +20,14 @@ const __dirname = dirname(__filename);
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const flags: any = { high: false, tolerance: 0.15, baseline: "" };
+  const flags: any = { high: false, tolerance: 0.15, baseline: "", update: false, updateAll: false };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === "--high") flags.high = true;
     if (a === "--tolerance") flags.tolerance = parseFloat(args[++i]);
     if (a === "--baseline") flags.baseline = args[++i];
+    if (a === "--update") flags.update = true;
+    if (a === "--update-all") flags.updateAll = true;
   }
   return flags;
 }
@@ -76,20 +78,33 @@ async function main() {
 
   for (const base of baseline.repos) {
     const url = `https://github.com/${base.slug}`;
-    const { report, totalFindings } = await scanRepo(url, compiledRules);
-    const slug = repoSlug({ owner: report.repo.split("/")[0], repo: report.repo.split("/")[1], branch: report.branch });
-    let ok = true;
-    let lower = 0;
-    let upper = 0;
-    if (base.expectedFindings >= 0) {
-      lower = Math.floor(base.expectedFindings * (1 - tolerance));
-      upper = Math.ceil(base.expectedFindings * (1 + tolerance));
-      ok = totalFindings >= lower && totalFindings <= upper;
+    try {
+      const { report, totalFindings } = await scanRepo(url, compiledRules);
+      const slug = repoSlug({ owner: report.repo.split("/")[0], repo: report.repo.split("/")[1], branch: report.branch });
+      let ok = true;
+      let lower = 0;
+      let upper = 0;
+      if (base.expectedFindings >= 0) {
+        lower = Math.floor(base.expectedFindings * (1 - tolerance));
+        upper = Math.ceil(base.expectedFindings * (1 + tolerance));
+        ok = totalFindings >= lower && totalFindings <= upper;
+      }
+      console.log(`[BASELINE] ${base.name} (${slug}) expected=${base.expectedFindings} actual=${totalFindings}` +
+        (base.expectedFindings >= 0 ? ` range=[${lower}, ${upper}] -> ${ok ? "OK" : "FAIL"}` : " (record-only)"));
+      results.push({ name: base.name, slug, expected: base.expectedFindings, actual: totalFindings, ok });
+      if (!ok) failed += 1;
+    } catch (e: any) {
+      // If record-only, tolerate transient repo issues
+      if (base.expectedFindings < 0) {
+        console.warn(`[BASELINE] ${base.name} (${base.slug}) scan error, skipping record: ${e?.message || e}`);
+        results.push({ name: base.name, slug: base.slug, expected: base.expectedFindings, actual: -1, ok: true });
+        continue;
+      } else {
+        console.error(`[BASELINE] ${base.name} (${base.slug}) scan error: ${e?.message || e}`);
+        results.push({ name: base.name, slug: base.slug, expected: base.expectedFindings, actual: -1, ok: false });
+        failed += 1;
+      }
     }
-    console.log(`[BASELINE] ${base.name} (${slug}) expected=${base.expectedFindings} actual=${totalFindings}` +
-      (base.expectedFindings >= 0 ? ` range=[${lower}, ${upper}] -> ${ok ? "OK" : "FAIL"}` : " (record-only)"));
-    results.push({ name: base.name, slug, expected: base.expectedFindings, actual: totalFindings, ok });
-    if (!ok) failed += 1;
   }
 
   const summary = {
@@ -97,6 +112,23 @@ async function main() {
     results
   };
   console.log(JSON.stringify(summary, null, 2));
+
+  // Optionally update baseline file:
+  if (args.update || args.updateAll) {
+    const updated = JSON.parse(readFileSync(baselinePath, "utf-8"));
+    for (const r of results) {
+      const idx = updated.repos.findIndex((x: any) => x.slug === r.slug);
+      if (idx >= 0) {
+        const currentExpected = updated.repos[idx].expectedFindings;
+        if (args.updateAll || currentExpected < 0) {
+          updated.repos[idx].expectedFindings = r.actual;
+        }
+      }
+    }
+    writeFileSync(baselinePath, JSON.stringify(updated, null, 2), "utf-8");
+    console.log(`[BASELINE] Updated ${baselinePath} with ${args.updateAll ? "all" : "record-only"} actuals.`);
+  }
+
   if (failed > 0) {
     console.error(`[ERROR] ${failed} repositories out of tolerance`);
     process.exit(1);

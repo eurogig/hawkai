@@ -2,7 +2,7 @@ import type { Severity } from "@/types";
 
 export interface ScoringConfig {
   weights: { usage: number; hint: number; metadata: number };
-  thresholds: { critical: number; high: number; moderate: number };
+  thresholds: { critical: number; high: number; moderate: number; minGroup: number };
   boosts: { usagePlusHint: number; usagePlusMetadata: number };
   demotions: { testOrExamplePath: number; loopWithoutInvoke: number; mockLikePath: number };
   caps: { perFileFindings: number; perGroupRelated: number };
@@ -10,7 +10,7 @@ export interface ScoringConfig {
 
 const DEFAULT_CONFIG: ScoringConfig = {
   weights: { usage: 0.75, hint: 0.45, metadata: 0.3 },
-  thresholds: { critical: 0.9, high: 0.7, moderate: 0.5 },
+  thresholds: { critical: 0.9, high: 0.7, moderate: 0.5, minGroup: 0.35 },
   boosts: { usagePlusHint: 1.15, usagePlusMetadata: 1.05 },
   demotions: { testOrExamplePath: 0.85, loopWithoutInvoke: 0.8, mockLikePath: 0.9 },
   caps: { perFileFindings: 200, perGroupRelated: 6 }

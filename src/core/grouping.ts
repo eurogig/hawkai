@@ -281,21 +281,61 @@ function groupFileFindings(file: string, findings: Finding[]): FindingGroup[] {
       .sort((a, b) => Math.abs((a.line ?? 0) - (primary.line ?? 0)) - Math.abs((b.line ?? 0) - (primary.line ?? 0)))
       .slice(0, 3);
     
+    // Compute composite score and apply min-evidence floor for non-usage groups later
+    const groupsBeforePushLen = groups.length;
+    const contributing: NonNullable<FindingGroup["contributingSignals"]> = [];
+    const primaryRel = RULE_RELATIONSHIPS[primary.ruleId];
+    const primaryRole = primaryRel?.type ?? "usage";
+    let usageCount = primaryRole === "usage" ? 1 : 0;
+    let hintCount = primaryRole === "hint" ? 1 : 0;
+    let metadataCount = primaryRole === "metadata" ? 1 : 0;
+    const MAX_RELATED = getRelatedCap();
+    const relatedLimited = [...related, ...otherUsages].slice(0, MAX_RELATED);
+    let score = baseWeightForRole(primaryRole) * primary.confidence;
+    contributing.push({ ruleId: primary.ruleId, weight: baseWeightForRole(primaryRole), confidence: primary.confidence, role: primaryRole });
+    relatedLimited.forEach((f, idx) => {
+      const relType = RULE_RELATIONSHIPS[f.ruleId]?.type ?? "hint";
+      const w = baseWeightForRole(relType);
+      const diminish = 1 / (1 + idx * 0.35);
+      score += w * f.confidence * diminish;
+      contributing.push({ ruleId: f.ruleId, weight: w, confidence: f.confidence, role: relType });
+      if (relType === "usage") usageCount++;
+      if (relType === "hint") hintCount++;
+      if (relType === "metadata") metadataCount++;
+    });
+    score = applyBoosts(score, usageCount, hintCount, metadataCount);
+    score = applyDemotions(score, {
+      isTestOrExamplePath: isTestOrExamplePath(primary.file),
+      loopOnlyWithoutInvoke: isLoopOnlyGroup({ id: "", primaryFinding: primary, relatedFindings: relatedLimited, file, severity, category: primary.category, riskBoost, } as any, contributing),
+      isMockLikePath: isMockLikePath(primary.file)
+    });
+    const thresholds = require("@/core/scoring").getScoringConfig().thresholds;
+    const mapped = scoreToSeverity(Math.max(0, Math.min(1, score)));
+    const finalSeverity = severityToNumber(mapped) > severityToNumber(severity) ? mapped : severity;
+    // enforce min-evidence floor for non-usage groups (shouldn't apply here since we are in usage grouping)
+    // push group
     groups.push({
       id: `group-${file}-${ruleId}`,
       primaryFinding: primary,
-      relatedFindings: [...related, ...otherUsages], // Include other same-type usages and hints (limited)
+      relatedFindings: relatedLimited,
       file: primary.file,
-      severity,
+      severity: finalSeverity,
       category: primary.category,
-      riskBoost
+      riskBoost,
+      compositeScore: Math.max(0, Math.min(1, score)),
+      contributingSignals: contributing
     });
   }
   
   // Handle standalone hints (no usage found)
   for (const hint of hintFindings) {
     if (processed.has(hint.id)) continue;
-    
+    const thresholds2 = require("@/core/scoring").getScoringConfig().thresholds;
+    const comp = baseWeightForRole("hint") * (hint.confidence ?? 0.5);
+    if (comp < (thresholds2.minGroup ?? 0)) {
+      processed.add(hint.id);
+      continue;
+    }
     groups.push({
       id: `group-${hint.id}`,
       primaryFinding: hint,
@@ -303,7 +343,9 @@ function groupFileFindings(file: string, findings: Finding[]): FindingGroup[] {
       file: hint.file,
       severity: hint.severity,
       category: hint.category,
-      riskBoost: 0
+      riskBoost: 0,
+      compositeScore: comp,
+      contributingSignals: [{ ruleId: hint.ruleId, weight: baseWeightForRole("hint"), confidence: hint.confidence, role: "hint" }]
     });
     processed.add(hint.id);
   }
