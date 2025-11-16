@@ -338,6 +338,268 @@ export function propagateConfidence(graph: ReachabilityGraph): ReachabilityGraph
   };
 }
 
+export interface RiskyPath {
+  source: GraphNode;
+  transforms: GraphNode[]; // Model/agent nodes in the path
+  sink: GraphNode;
+  path: GraphNode[]; // Full path from source to sink
+  confidence: number; // Combined confidence score [0-1]
+  riskLevel: "critical" | "high" | "moderate" | "low";
+}
+
+/**
+ * Detect risky paths: untrusted input → model/agent → tool execution.
+ * - Sources: user input, HTTP params, CLI args, env/config, file reads
+ * - Transforms: LLM calls, agent executions, RAG retrieval
+ * - Sinks: filesystem ops, shell commands, network calls, DB operations
+ */
+export function detectRiskyPaths(graph: ReachabilityGraph): RiskyPath[] {
+  const nodesById = new Map<string, GraphNode>();
+  for (const node of graph.nodes) {
+    nodesById.set(node.id, node);
+  }
+
+  // Build adjacency list (reverse: to -> from for backwards traversal)
+  const reverseAdj = new Map<string, GraphEdge[]>();
+  const forwardAdj = new Map<string, GraphEdge[]>();
+  for (const edge of graph.edges) {
+    if (!reverseAdj.has(edge.to)) {
+      reverseAdj.set(edge.to, []);
+    }
+    reverseAdj.get(edge.to)!.push(edge);
+    
+    if (!forwardAdj.has(edge.from)) {
+      forwardAdj.set(edge.from, []);
+    }
+    forwardAdj.get(edge.from)!.push(edge);
+  }
+
+  // Identify source nodes (untrusted input patterns)
+  const isSourceNode = (node: GraphNode): boolean => {
+    const label = node.label.toLowerCase();
+    const file = node.file?.toLowerCase() || "";
+    const nodeId = node.id.toLowerCase();
+    
+    // Exclude tool nodes (tools are sinks, not sources)
+    if (/tool|execute|run|invoke|uses_tool/i.test(nodeId) || /ag-tool|ag-function/i.test(nodeId)) {
+      return false;
+    }
+    
+    // Check call edges (which we extracted from code) - look for imports/calls to input APIs
+    const edgesFromNode = forwardAdj.get(node.id) || [];
+    for (const edge of edgesFromNode) {
+      const target = edge.to.toLowerCase();
+      // Import patterns (but not tool imports)
+      if (/input|argv|args|stdin|readline|argparse|click|dotenv|process\.env|getenv|readfile|read\(|open\(/i.test(target) && !/tool/i.test(target)) {
+        return true;
+      }
+      // HTTP/request patterns (but not if this is already a tool/sink node)
+      if (/request|fetch|http|body|query|params|headers/i.test(target) && edge.kind !== "uses_tool") {
+        return true;
+      }
+    }
+    
+    // User input patterns in label/file
+    if (/input|argv|args|stdin|readline|request\.(body|query|params|headers)|req\.(body|query|params|headers)/i.test(label + file + nodeId)) {
+      return true;
+    }
+    // File reads (but not writes)
+    if (/readfile|open\(.*['"']r|read\(|\.read\(|fs\.read/i.test(label + file + nodeId) && !/write/i.test(label + file + nodeId)) {
+      return true;
+    }
+    // Environment/config
+    if (/process\.env|getenv|os\.getenv|dotenv|config|settings/i.test(label + file + nodeId)) {
+      return true;
+    }
+    // CLI arguments
+    if (/argparse|click|sys\.argv|process\.argv/i.test(label + file + nodeId)) {
+      return true;
+    }
+    // HTTP requests (incoming, not outgoing)
+    if (/request|fetch|http\.|url|query|body|params/i.test(label) || /http|api|endpoint/i.test(file)) {
+      // Also check if this node has edges to HTTP-related targets (but not outgoing posts/puts)
+      if (edgesFromNode.some(e => /http|request|fetch|api/i.test(e.to) && !/post|put|send|publish/i.test(e.to))) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  // Identify transform nodes (model/agent calls)
+  const isTransformNode = (node: GraphNode): boolean => {
+    const label = node.label.toLowerCase();
+    const ruleId = node.id.toLowerCase();
+    
+    // LLM calls
+    if (/chat\.completions|completions\.create|invoke|stream|run/i.test(label + ruleId)) {
+      return true;
+    }
+    // Agent frameworks
+    if (/langgraph|langchain|crewai|autogen|agent|graph|chain/i.test(label + ruleId)) {
+      return true;
+    }
+    // RAG retrieval
+    if (/rag|retrieval|vector|embedding/i.test(label + ruleId)) {
+      return true;
+    }
+    // Model usage
+    if (/uses_model|uses_endpoint|openai|anthropic|model/i.test(ruleId)) {
+      return true;
+    }
+    
+    return false;
+  };
+
+  // Identify sink nodes (tool executions)
+  const isSinkNode = (node: GraphNode): boolean => {
+    const label = node.label.toLowerCase();
+    const ruleId = node.id.toLowerCase();
+    
+    // Check call edges (which we extracted from code) - look for calls to tool/execution APIs
+    const edgesFromNode = forwardAdj.get(node.id) || [];
+    for (const edge of edgesFromNode) {
+      const target = edge.to.toLowerCase();
+      // Tool-related calls
+      if (/tool|execute|run|invoke|call/i.test(target) && edge.kind === "uses_tool") {
+        return true;
+      }
+      // Filesystem operations
+      if (/writefile|writetext|open|write|system|exec|shell|subprocess/i.test(target)) {
+        return true;
+      }
+      // Network operations
+      if (/fetch|post|put|send|publish|smtp|http/i.test(target)) {
+        return true;
+      }
+      // Database operations
+      if (/execute|query|commit|insert|update|delete|db|database/i.test(target)) {
+        return true;
+      }
+    }
+    
+    // Filesystem operations
+    if (/writefile|writetext|open\(.*['"']w|os\.system|subprocess|exec|shell/i.test(label + ruleId)) {
+      return true;
+    }
+    // Tool usage (from call edges - check edge kind)
+    const hasToolEdge = edgesFromNode.some(e => e.kind === "uses_tool");
+    if (hasToolEdge || /uses_tool|tool|execute|run/i.test(ruleId)) {
+      return true;
+    }
+    // Network calls (outbound)
+    if (/fetch|request\.post|request\.put|http\.post|smtp|send|publish/i.test(label)) {
+      return true;
+    }
+    // Database operations
+    if (/execute|query|commit|insert|update|delete|db\.|database/i.test(label + ruleId)) {
+      return true;
+    }
+    // Shell/system commands
+    if (/system|exec|spawn|shell=true|subprocess/i.test(label + ruleId)) {
+      return true;
+    }
+    
+    return false;
+  };
+
+  // Classify nodes
+  const sourceNodes = graph.nodes.filter(isSourceNode);
+  const transformNodes = graph.nodes.filter(isTransformNode);
+  const sinkNodes = graph.nodes.filter(isSinkNode);
+
+  // Find paths: source → [transforms] → sink
+  const riskyPaths: RiskyPath[] = [];
+  const MAX_PATH_LENGTH = 6; // Limit path traversal
+
+  function findPathToSink(
+    start: string,
+    sink: string,
+    visited: Set<string>,
+    path: GraphNode[],
+    transforms: GraphNode[],
+    depth: number
+  ): void {
+    if (depth > MAX_PATH_LENGTH || visited.has(start)) {
+      return;
+    }
+
+    const currentNode = nodesById.get(start);
+    if (!currentNode) return;
+
+    visited.add(start);
+    path.push(currentNode);
+
+    // Track transforms in path
+    if (isTransformNode(currentNode)) {
+      transforms.push(currentNode);
+    }
+
+    // Check if we reached the sink
+    if (start === sink && transforms.length > 0) {
+      // Calculate path confidence
+      let pathConf = 1.0;
+      for (const node of path) {
+        const nodeConf = node.compositeScore ?? node.confidence ?? 0.5;
+        pathConf *= nodeConf;
+      }
+      // Apply decay for path length
+      pathConf *= Math.pow(0.9, path.length - 1);
+      
+      // Determine risk level
+      let riskLevel: RiskyPath["riskLevel"] = "low";
+      if (pathConf >= 0.8) riskLevel = "critical";
+      else if (pathConf >= 0.6) riskLevel = "high";
+      else if (pathConf >= 0.4) riskLevel = "moderate";
+
+      riskyPaths.push({
+        source: path[0],
+        transforms: [...transforms],
+        sink: path[path.length - 1],
+        path: [...path],
+        confidence: Math.max(0, Math.min(1, pathConf)),
+        riskLevel
+      });
+    } else {
+      // Continue traversal
+      const edges = forwardAdj.get(start) || [];
+      for (const edge of edges) {
+        // Prefer high-weight edges
+        if ((edge.weight ?? 0.5) >= 0.3) {
+          findPathToSink(edge.to, sink, visited, path, transforms, depth + 1);
+        }
+      }
+    }
+
+    path.pop();
+    if (isTransformNode(currentNode)) {
+      transforms.pop();
+    }
+    visited.delete(start);
+  }
+
+  // Find paths from each source to each sink
+  for (const source of sourceNodes) {
+    for (const sink of sinkNodes) {
+      findPathToSink(source.id, sink.id, new Set(), [], [], 0);
+    }
+  }
+
+  // Deduplicate and sort by confidence (highest first)
+  const uniquePaths = new Map<string, RiskyPath>();
+  for (const path of riskyPaths) {
+    const key = `${path.source.id}→${path.sink.id}`;
+    const existing = uniquePaths.get(key);
+    if (!existing || path.confidence > existing.confidence) {
+      uniquePaths.set(key, path);
+    }
+  }
+
+  return Array.from(uniquePaths.values())
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 50); // Limit to top 50 risky paths
+}
+
 export function toDot(graph: ReachabilityGraph): string {
   const lines: string[] = [];
   lines.push("digraph G {");

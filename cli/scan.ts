@@ -312,8 +312,9 @@ async function main() {
     
     // Optional: build reachability graph
     let graphOutput = "";
+    let riskyPaths: any[] = [];
     if (args.graph) {
-      const { buildCoarseGraph, enrichGraphWithCallEdges, propagateConfidence, toDot, toMermaid } = await import("../src/core/reachability.js");
+      const { buildCoarseGraph, enrichGraphWithCallEdges, propagateConfidence, detectRiskyPaths, toDot, toMermaid } = await import("../src/core/reachability.js");
       const groups = report.groups || [];
       let graph = buildCoarseGraph(groups);
       
@@ -348,10 +349,13 @@ async function main() {
         
         // Propagate confidence along paths and update edge weights
         graph = propagateConfidence(graph);
+        
+        // Detect risky paths
+        riskyPaths = detectRiskyPaths(graph);
       }
       
       if (args.graph === "json") {
-        graphOutput = JSON.stringify(graph, null, 2);
+        graphOutput = JSON.stringify({ graph, riskyPaths }, null, 2);
       } else if (args.graph === "dot") {
         graphOutput = toDot(graph);
       } else if (args.graph === "mermaid") {
@@ -419,6 +423,23 @@ async function main() {
     if (graphOutput) {
       console.log("\n--- Reachability Graph ---\n");
       console.log(graphOutput);
+    }
+    if (riskyPaths.length > 0 && !args.graphOnly) {
+      console.log("\n--- Risky Paths Detected ---\n");
+      riskyPaths.slice(0, 10).forEach((path, i) => {
+        console.log(`${i + 1}. [${path.riskLevel.toUpperCase()}] Confidence: ${Math.round(path.confidence * 100)}%`);
+        console.log(`   Source: ${path.source.label} (${path.source.file}${path.source.line ? `:${path.source.line}` : ""})`);
+        if (path.transforms.length > 0) {
+          const transforms = path.transforms.map(t => t.label).join(", ");
+          console.log(`   Transforms: ${transforms}`);
+        }
+        console.log(`   Sink: ${path.sink.label} (${path.sink.file}${path.sink.line ? `:${path.sink.line}` : ""})`);
+        console.log(`   Path length: ${path.path.length} nodes`);
+        console.log("");
+      });
+      if (riskyPaths.length > 10) {
+        console.log(`   ... and ${riskyPaths.length - 10} more risky paths`);
+      }
     }
     
   } catch (error) {
