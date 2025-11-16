@@ -375,27 +375,44 @@ export function detectRiskyPaths(graph: ReachabilityGraph): RiskyPath[] {
   }
 
   // Identify source nodes (untrusted input patterns)
+  // Tools CAN be sources if they receive untrusted input (tool → model → tool pattern)
   const isSourceNode = (node: GraphNode): boolean => {
     const label = node.label.toLowerCase();
     const file = node.file?.toLowerCase() || "";
     const nodeId = node.id.toLowerCase();
     
-    // Exclude tool nodes (tools are sinks, not sources)
-    if (/tool|execute|run|invoke|uses_tool/i.test(nodeId) || /ag-tool|ag-function/i.test(nodeId)) {
-      return false;
-    }
+    // Check if this is a tool node that receives input (tools can be sources)
+    const isToolNode = /tool|uses_tool|ag-tool|ag-function/i.test(nodeId) || 
+                       /ag-tool|ag-function/i.test(label);
     
     // Check call edges (which we extracted from code) - look for imports/calls to input APIs
     const edgesFromNode = forwardAdj.get(node.id) || [];
     for (const edge of edgesFromNode) {
       const target = edge.to.toLowerCase();
-      // Import patterns (but not tool imports)
-      if (/input|argv|args|stdin|readline|argparse|click|dotenv|process\.env|getenv|readfile|read\(|open\(/i.test(target) && !/tool/i.test(target)) {
+      // Import patterns for input sources
+      if (/input|argv|args|stdin|readline|argparse|click|dotenv|process\.env|getenv|readfile|read\(|open\(/i.test(target)) {
         return true;
       }
-      // HTTP/request patterns (but not if this is already a tool/sink node)
+      // HTTP/request patterns (incoming)
       if (/request|fetch|http|body|query|params|headers/i.test(target) && edge.kind !== "uses_tool") {
         return true;
+      }
+    }
+    
+    // Tools can be sources if they have incoming edges from input sources
+    if (isToolNode) {
+      const incomingEdges = reverseAdj.get(node.id) || [];
+      // If tool receives input from user/HTTP/env/file sources, it's a source
+      for (const edge of incomingEdges) {
+        const sourceNode = nodesById.get(edge.from);
+        if (sourceNode) {
+          const sourceLabel = sourceNode.label.toLowerCase();
+          const sourceId = sourceNode.id.toLowerCase();
+          // Check if incoming from input patterns
+          if (/input|argv|args|stdin|request|fetch|http|body|query|params|env|config|readfile|read\(/i.test(sourceLabel + sourceId)) {
+            return true;
+          }
+        }
       }
     }
     
@@ -427,23 +444,32 @@ export function detectRiskyPaths(graph: ReachabilityGraph): RiskyPath[] {
   };
 
   // Identify transform nodes (model/agent calls)
+  // Exclude tools - tools are sources/sinks, not transforms
   const isTransformNode = (node: GraphNode): boolean => {
     const label = node.label.toLowerCase();
     const ruleId = node.id.toLowerCase();
     
-    // LLM calls
-    if (/chat\.completions|completions\.create|invoke|stream|run/i.test(label + ruleId)) {
+    // Exclude tool nodes (tools are sources/sinks, not transforms)
+    if (/ag-tool|ag-function|tool-class|tool-list|tool-decorator|uses_tool/i.test(ruleId) || 
+        /ag-tool|ag-function/i.test(label)) {
+      return false;
+    }
+    
+    // LLM calls (but not tool invocations)
+    if (/chat\.completions|completions\.create/i.test(label + ruleId) ||
+        (/invoke|stream|run/i.test(label + ruleId) && !/tool/i.test(ruleId))) {
       return true;
     }
-    // Agent frameworks
-    if (/langgraph|langchain|crewai|autogen|agent|graph|chain/i.test(label + ruleId)) {
+    // Agent frameworks (but not tool classes)
+    if (/langgraph|langchain|crewai|autogen/i.test(ruleId) ||
+        (/agent|graph|chain/i.test(label + ruleId) && !/tool/i.test(ruleId))) {
       return true;
     }
     // RAG retrieval
     if (/rag|retrieval|vector|embedding/i.test(label + ruleId)) {
       return true;
     }
-    // Model usage
+    // Model usage (direct model/endpoint usage)
     if (/uses_model|uses_endpoint|openai|anthropic|model/i.test(ruleId)) {
       return true;
     }
@@ -579,8 +605,13 @@ export function detectRiskyPaths(graph: ReachabilityGraph): RiskyPath[] {
   }
 
   // Find paths from each source to each sink
+  // Ensure source != sink (prevent self-loops) and there's at least one transform between them
   for (const source of sourceNodes) {
     for (const sink of sinkNodes) {
+      // Skip if source and sink are the same node (self-loop)
+      if (source.id === sink.id) {
+        continue;
+      }
       findPathToSink(source.id, sink.id, new Set(), [], [], 0);
     }
   }
