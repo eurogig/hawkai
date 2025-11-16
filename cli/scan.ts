@@ -15,6 +15,7 @@ import { parseGitHubUrl, repoSlug } from "../src/core/url.js";
 import { downloadRepoArchive, resolveDefaultBranch } from "../src/core/github.js";
 import { compileRules } from "../src/core/rules.js";
 import { createReport, scanArchive } from "../src/core/scanner.js";
+import { unzipArchive, decodeUtf8, isLikelyBinary } from "../src/core/unzip.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -312,9 +313,40 @@ async function main() {
     // Optional: build reachability graph
     let graphOutput = "";
     if (args.graph) {
-      const { buildCoarseGraph, toDot, toMermaid } = await import("../src/core/reachability.js");
+      const { buildCoarseGraph, enrichGraphWithCallEdges, toDot, toMermaid } = await import("../src/core/reachability.js");
       const groups = report.groups || [];
-      const graph = buildCoarseGraph(groups);
+      let graph = buildCoarseGraph(groups);
+      
+      // Enrich with call edges if we have file contents
+      if (groups.length > 0) {
+        const fileContents = new Map<string, string>();
+        const filesWithFindings = new Set<string>();
+        
+        // Collect files that have findings
+        for (const group of groups) {
+          if (group.primaryFinding.file) filesWithFindings.add(group.primaryFinding.file);
+          for (const r of group.relatedFindings) {
+            if (r.file) filesWithFindings.add(r.file);
+          }
+        }
+        
+        // Extract file contents from archive
+        const entries = unzipArchive(buffer);
+        for (const entry of entries) {
+          if (filesWithFindings.has(entry.path) && !isLikelyBinary(entry.data)) {
+            try {
+              const text = decodeUtf8(entry.data);
+              fileContents.set(entry.path, text);
+            } catch {
+              // Skip files that can't be decoded
+            }
+          }
+        }
+        
+        // Enrich graph with call edges
+        graph = enrichGraphWithCallEdges(graph, groups, fileContents);
+      }
+      
       if (args.graph === "json") {
         graphOutput = JSON.stringify(graph, null, 2);
       } else if (args.graph === "dot") {
