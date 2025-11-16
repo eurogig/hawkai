@@ -97,6 +97,17 @@ Rule packs live under `public/rules` in YAML format. Update `index.json` when ad
 HawkAI uses multi-signal confidence scoring with grouping, boosts/demotions, and severity mapping. All knobs are tunable at runtime via `public/config/scoring.json`. See:
 - `docs/scoring-and-confidence.md`
 
+## Reachability Graph
+
+HawkAI can build a reachability graph showing data flow from untrusted input sources through AI/agent processing to dangerous sink operations. This helps identify risky paths where user input could be processed by models/agents and then executed as tools without proper validation. See:
+- `docs/reachability-graph.md`
+
+**Usage:**
+```bash
+# Generate graph with risky paths
+npm run scan -- <repo-url> --graph json|dot|mermaid
+```
+
 ## CI & Baselines
 
 Quick and nightly workflows validate scans against golden baselines with tolerances. Learn how to add repos, run locally, and update baselines:
