@@ -102,6 +102,14 @@ export function buildCoarseGraph(groups: FindingGroup[]): ReachabilityGraph {
   };
 }
 
+// Performance caps
+const MAX_FILES_FOR_CALL_EDGES = 200; // Max files to process for call-edge extraction
+const MAX_CALL_EDGES_PER_FILE = 100; // Max call edges to extract per file
+const MAX_TOTAL_CALL_EDGES = 5000; // Max total call edges to add to graph
+const MAX_NODES_FOR_PROPAGATION = 100; // Max high-confidence nodes for path propagation
+const MAX_SOURCE_NODES = 200; // Max source nodes to consider for risky paths
+const MAX_SINK_NODES = 200; // Max sink nodes to consider for risky paths
+
 /**
  * Enrich a coarse graph with call edges extracted from source files.
  * Maps call edges to finding nodes based on file/line proximity.
@@ -137,16 +145,36 @@ export function enrichGraphWithCallEdges(
     }
   }
 
+  // Cap number of files to process
+  const filesToProcess = Array.from(filesWithFindings).slice(0, MAX_FILES_FOR_CALL_EDGES);
+
   let callEdgeCount = 0;
-  for (const file of filesWithFindings) {
+  for (const file of filesToProcess) {
+    // Stop if we've added too many edges
+    if (callEdgeCount >= MAX_TOTAL_CALL_EDGES) {
+      break;
+    }
     const content = fileContents.get(file);
     if (!content) continue;
 
     try {
       const callGraph = extractCallEdges(file, content);
       
+      // Cap call edges per file
+      const edgesToProcess = callGraph.edges.slice(0, MAX_CALL_EDGES_PER_FILE);
+      
       // Map call edges to graph nodes
-      for (const callEdge of callGraph.edges) {
+      let edgesAddedThisFile = 0;
+      for (const callEdge of edgesToProcess) {
+        // Stop if we've added too many total edges
+        if (callEdgeCount >= MAX_TOTAL_CALL_EDGES) {
+          break;
+        }
+        
+        // Stop if we've added too many edges for this file
+        if (edgesAddedThisFile >= MAX_CALL_EDGES_PER_FILE) {
+          break;
+        }
         // Find nodes in the same file (prefer same line, otherwise closest)
         const candidateNodes = Array.from(graph.nodes).filter(n => n.file === file);
         if (candidateNodes.length === 0) continue;
@@ -198,6 +226,7 @@ export function enrichGraphWithCallEdges(
             label: callEdge.to
           });
           callEdgeCount++;
+          edgesAddedThisFile++;
         }
       }
     } catch (error) {
@@ -305,9 +334,11 @@ export function propagateConfidence(graph: ReachabilityGraph): ReachabilityGraph
     visited.delete(start);
   }
 
-  // Start path finding from high-confidence nodes
+  // Start path finding from high-confidence nodes (capped for performance)
   const highConfNodes = graph.nodes
     .filter(n => (n.compositeScore ?? n.confidence ?? 0) >= 0.7)
+    .sort((a, b) => (b.compositeScore ?? b.confidence ?? 0) - (a.compositeScore ?? a.confidence ?? 0))
+    .slice(0, MAX_NODES_FOR_PROPAGATION)
     .map(n => n.id);
   
   for (const nodeId of highConfNodes) {
@@ -529,10 +560,18 @@ export function detectRiskyPaths(graph: ReachabilityGraph): RiskyPath[] {
     return false;
   };
 
-  // Classify nodes
-  const sourceNodes = graph.nodes.filter(isSourceNode);
-  const transformNodes = graph.nodes.filter(isTransformNode);
-  const sinkNodes = graph.nodes.filter(isSinkNode);
+  // Classify nodes (capped for performance)
+  const allSourceNodes = graph.nodes.filter(isSourceNode);
+  const allSinkNodes = graph.nodes.filter(isSinkNode);
+  
+  // Prioritize high-confidence sources and sinks, cap total
+  const sourceNodes = allSourceNodes
+    .sort((a, b) => (b.compositeScore ?? b.confidence ?? 0) - (a.compositeScore ?? a.confidence ?? 0))
+    .slice(0, MAX_SOURCE_NODES);
+  
+  const sinkNodes = allSinkNodes
+    .sort((a, b) => (b.compositeScore ?? b.confidence ?? 0) - (a.compositeScore ?? a.confidence ?? 0))
+    .slice(0, MAX_SINK_NODES);
 
   // Find paths: source → [transforms] → sink
   const riskyPaths: RiskyPath[] = [];
