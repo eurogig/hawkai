@@ -120,19 +120,35 @@ export function toDot(graph: ReachabilityGraph): string {
 export function toMermaid(graph: ReachabilityGraph): string {
   const lines: string[] = [];
   lines.push("flowchart LR");
-  for (const n of graph.nodes) {
-    const label = `${n.label}${n.file ? `\\n${n.file}${n.line ? `:${n.line}` : ""}` : ""}`;
-    lines.push(`  ${safeId(n.id)}["${label}"]`);
+  
+  // Create stable mapping from original IDs to Mermaid-safe IDs
+  const idMap = new Map<string, string>();
+  let counter = 0;
+  
+  function safeId(originalId: string): string {
+    if (!idMap.has(originalId)) {
+      // Use counter-based IDs for stability and readability
+      const safe = `N${counter++}`;
+      idMap.set(originalId, safe);
+    }
+    return idMap.get(originalId)!;
   }
+  
+  // Deduplicate nodes by Mermaid ID (in case of hash collisions)
+  const seenNodes = new Set<string>();
+  for (const n of graph.nodes) {
+    const mermaidId = safeId(n.id);
+    if (seenNodes.has(mermaidId)) continue;
+    seenNodes.add(mermaidId);
+    const label = `${n.label}${n.file ? `\\n${n.file}${n.line ? `:${n.line}` : ""}` : ""}`;
+    lines.push(`  ${mermaidId}["${label}"]`);
+  }
+  
   for (const e of graph.edges) {
     const lbl = e.label ? `|${e.label}|` : "";
     lines.push(`  ${safeId(e.from)} -->${lbl} ${safeId(e.to)}`);
   }
   return lines.join("\n");
-}
-
-function safeId(id: string): string {
-  return "N" + Buffer.from(id).toString("hex").slice(0, 24);
 }
 
 function pickHigherSeverity(a?: Severity, b?: Severity): Severity | undefined {
