@@ -123,6 +123,7 @@ export function compileRuleDefinitions(defs: RuleDefinition[]): CompiledRule[] {
 
 export function applyRulesToFile(path: string, content: string, rules: CompiledRule[]): Finding[] {
   const findings: Finding[] = [];
+  const MAX_FILE_FINDINGS = 200; // performance cap to avoid pathological files
 
   for (const rule of rules) {
     if (!ruleAppliesToPath(rule, path)) continue;
@@ -145,7 +146,13 @@ export function applyRulesToFile(path: string, content: string, rules: CompiledR
         remediation: rule.remediation,
         confidence: rule.confidence
       });
+      if (findings.length >= MAX_FILE_FINDINGS) {
+        return findings;
+      }
       match = rule.regex.exec(content);
+    }
+    if (findings.length >= MAX_FILE_FINDINGS) {
+      break;
     }
   }
 
