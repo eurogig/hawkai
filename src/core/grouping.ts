@@ -165,7 +165,8 @@ export function groupFindings(findings: Finding[]): FindingGroup[] {
     score = applyBoosts(score, usageCount, hintCount, metadataCount);
     score = applyDemotions(score, {
       isTestOrExamplePath: isTestOrExamplePath(group.file),
-      loopOnlyWithoutInvoke: isLoopOnlyGroup(group, contributing)
+      loopOnlyWithoutInvoke: isLoopOnlyGroup(group, contributing),
+      isMockLikePath: isMockLikePath(group.file)
     });
     // Clamp to [0,1]
     score = Math.max(0, Math.min(1, score));
@@ -415,6 +416,18 @@ function isLoopOnlyGroup(
   const hasLoop = [...allRuleIds].some(id => loopRuleIds.has(id));
   const hasCorroboration = [...allRuleIds].some(id => corroboratingUsage.has(id));
   return hasLoop && !hasCorroboration;
+}
+
+function isMockLikePath(p: string): boolean {
+  const lower = p.toLowerCase();
+  return (
+    lower.includes("/__mocks__/") ||
+    lower.includes("/mocks/") ||
+    lower.includes("/mock/") ||
+    lower.includes("/stubs/") ||
+    lower.includes("/fixtures/") ||
+    lower.includes("/samples/")
+  );
 }
 
 /**

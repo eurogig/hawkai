@@ -15,7 +15,8 @@
   },
   "demotions": {
     "testOrExamplePath": 0.85,
-    "loopWithoutInvoke": 0.8
+    "loopWithoutInvoke": 0.8,
+    "mockLikePath": 0.9
   },
   "caps": {
     "perFileFindings": 200,
