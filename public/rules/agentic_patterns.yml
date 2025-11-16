@@ -114,3 +114,261 @@
   evidenceHint: "Multi-agent orchestration config"
   remediation: "Review agent permissions and communication boundaries. Limit agent autonomy."
   confidence: 0.55
+- id: AG-LANGGRAPH-STATEGRAPH
+  title: "LangGraph StateGraph creation"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+    - "LLM01: Prompt Injection"
+    - "LLM09: Model Misuse"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(from\\s+langgraph\\.graph\\s+import\\s+StateGraph|import\\s+StateGraph|StateGraph\\s*\\()"
+  evidenceHint: "LangGraph StateGraph import or creation"
+  remediation: "Review StateGraph node definitions and edges. Ensure proper input validation and guardrails for state transitions."
+  confidence: 0.8
+- id: AG-LANGGRAPH-NODES
+  title: "LangGraph node addition"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+    - "LLM01: Prompt Injection"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(graph\\.add_node|workflow\\.add_node|StateGraph\\(\\)\\.add_node|\\badd_node\\s*\\([^)]*\"[^\"]+\"|\\badd_node\\s*\\([^)]*'[^']+')"
+  evidenceHint: "LangGraph node addition"
+  remediation: "Review node functions for proper input validation and access controls. Limit tool access within nodes."
+  confidence: 0.65
+- id: AG-LANGGRAPH-EDGES
+  title: "LangGraph edge addition"
+  severity: "moderate"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(graph\\.add_edge|workflow\\.add_edge|StateGraph\\(\\)\\.add_edge|\\badd_edge\\s*\\([^)]*\"[^\"]+\"|\\badd_edge\\s*\\([^)]*'[^']+'|add_conditional_edges|add_conditional_edges\\s*\\()"
+  evidenceHint: "LangGraph edge addition"
+  remediation: "Review edge conditions and ensure proper state validation before transitions."
+  confidence: 0.6
+- id: AG-LANGGRAPH-CONDITIONAL-EDGES
+  title: "LangGraph conditional edges detected"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+    - "LLM01: Prompt Injection"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(workflow\\.add_conditional_edges|graph\\.add_conditional_edges|add_conditional_edges\\s*\\()"
+  evidenceHint: "LangGraph conditional edges"
+  remediation: "Review conditional edge logic carefully. Validate routing decisions to prevent unauthorized agent transitions."
+  confidence: 0.75
+- id: AG-LANGGRAPH-CREATE-AGENT
+  title: "LangGraph create_react_agent detected"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+    - "LLM01: Prompt Injection"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(create_react_agent|from\\s+langgraph\\.prebuilt|from\\s+langgraph\\s+import.*create_react_agent)"
+  evidenceHint: "LangGraph create_react_agent"
+  remediation: "Review tools passed to create_react_agent. Ensure proper tool input validation and sandboxing."
+  confidence: 0.85
+- id: AG-LANGCHAIN-INVOKE
+  title: "LangChain invoke method detected"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM01: Prompt Injection"
+    - "LLM09: Model Misuse"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(LLM\\.invoke|chain\\.invoke|agent\\.invoke|supervisor_chain\\.invoke|agent_chain\\.invoke)"
+  evidenceHint: "LangChain chain/agent invocation"
+  remediation: "Validate all inputs to chain.invoke. Implement rate limiting and input sanitization."
+  confidence: 0.75
+- id: AG-LANGGRAPH-COMPILE
+  title: "LangGraph graph compilation"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+    - "LLM09: Model Misuse"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(graph\\.compile|workflow\\.compile|StateGraph\\(\\)\\.compile|app\\.compile|\\.compile\\(\\s*\\))"
+  evidenceHint: "LangGraph graph compilation"
+  remediation: "Review compiled graph for proper error handling and state management. Ensure cycles are bounded."
+  confidence: 0.65
+- id: AG-LANGGRAPH-INVOKE
+  title: "LangGraph graph invocation"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM01: Prompt Injection"
+    - "LLM05: Excessive Agency"
+    - "LLM09: Model Misuse"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(graph\\.invoke|workflow\\.invoke|app\\.invoke|compiled_graph\\.invoke|compiled_workflow\\.invoke)"
+  evidenceHint: "LangGraph graph invocation"
+  remediation: "Validate all inputs to graph.invoke. Implement rate limiting and monitor graph execution for loops."
+  confidence: 0.85
+- id: AG-LANGGRAPH-STREAM
+  title: "LangGraph graph streaming"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM01: Prompt Injection"
+    - "LLM05: Excessive Agency"
+    - "LLM09: Model Misuse"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(graph\\.stream|workflow\\.stream|app\\.stream|compiled_graph\\.stream|compiled_workflow\\.stream|graph\\.astream|workflow\\.astream|app\\.astream|compiled_graph\\.astream|compiled_workflow\\.astream)"
+  evidenceHint: "LangGraph graph streaming"
+  remediation: "Validate all inputs to graph.stream/astream. Implement proper streaming error handling and timeouts."
+  confidence: 0.85
+- id: AG-TOOL-DECORATOR
+  title: "Tool decorator pattern detected"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+    - "LLM01: Prompt Injection"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(@tool|@tool\\(\\)|@function_tool|@stub_tool)"
+  evidenceHint: "Tool decorator"
+  remediation: "Review all @tool decorated functions. Validate inputs, implement proper sandboxing, and restrict dangerous operations."
+  confidence: 0.8
+- id: AG-TOOL-CLASS
+  title: "Tool class instantiation"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+    - "LLM01: Prompt Injection"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(StructuredTool\\s*\\(|BaseTool\\s*\\(|DynamicTool\\s*\\(|Tool\\s*\\(|new\\s+StructuredTool|new\\s+BaseTool|new\\s+DynamicTool|from\\s+langchain\\.tools|from\\s+langchain_core\\.tools)"
+  evidenceHint: "Tool class creation"
+  remediation: "Review Tool definitions for proper input validation. Implement access controls and sandboxing for tool execution."
+  confidence: 0.8
+- id: AG-TOOL-LIST
+  title: "Tool list or array configuration"
+  severity: "moderate"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(tools\\s*=\\s*\\[|tools:\\s*\\[|tool_list|tools_list|agent_tools|agent\\.tools)"
+  evidenceHint: "Tool list configuration"
+  remediation: "Review tool list composition. Ensure only necessary and safe tools are included."
+  confidence: 0.7
+- id: AG-FUNCTION-TOOL-TYPE
+  title: "Function tool type in API calls"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM05: Excessive Agency"
+    - "LLM01: Prompt Injection"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(\"type\":\\s*\"function\"|\"type\":\\s*\"tool\"|type:\\s*\"function\"|type:\\s*\"tool\")"
+  evidenceHint: "Function tool type in API"
+  remediation: "Review function definitions passed to LLM. Validate function call outputs and implement proper sandboxing."
+  confidence: 0.75
+- id: AG-LOOP-WITH-AGENT
+  title: "Autonomous loop with agent/graph calls"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM01: Prompt Injection"
+    - "LLM05: Excessive Agency"
+    - "LLM09: Model Misuse"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(while\\s+\\([^)]*\\)[^{]*\\{[^}]*agent\\.(step|run|invoke)|while\\s+\\([^)]*\\)[^{]*\\{[^}]*graph\\.(invoke|stream)|while\\s+\\([^)]*\\)[^{]*\\{[^}]*workflow\\.(run|invoke)|while\\s+\\([^)]*\\)[^{]*\\{[^}]*agent_executor\\.run|for\\s+[^:]+in\\s+[^:]+:[^{]*\\{[^}]*agent\\.(step|run|invoke)|for\\s+[^:]+in\\s+[^:]+:[^{]*\\{[^}]*graph\\.(invoke|stream))"
+  evidenceHint: "Loop with agent/graph invocation"
+  remediation: "Implement loop limits, iteration counters, and timeout mechanisms. Add human-in-the-loop checkpoints for critical operations."
+  confidence: 0.65
+- id: AG-ASYNC-AGENT-LOOP
+  title: "Async autonomous loop with agent calls"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM01: Prompt Injection"
+    - "LLM05: Excessive Agency"
+    - "LLM09: Model Misuse"
+  fileGlobs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+  contentRegex: "(while\\s+\\([^)]*\\)[^{]*\\{[^}]*await\\s+agent\\.(step|run)|while\\s+\\([^)]*\\)[^{]*\\{[^}]*await\\s+graph\\.(invoke|stream)|while\\s+\\([^)]*\\)[^{]*\\{[^}]*await\\s+workflow\\.(run|invoke)|for\\s+[^:]+in\\s+[^:]+:[^{]*\\{[^}]*await\\s+agent\\.(step|run)|for\\s+[^:]+in\\s+[^:]+:[^{]*\\{[^}]*await\\s+graph\\.(invoke|stream))"
+  evidenceHint: "Async loop with agent calls"
+  remediation: "Implement loop limits, iteration counters, and timeout mechanisms. Add concurrency controls and rate limiting."
+  confidence: 0.65

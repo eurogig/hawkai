@@ -7,7 +7,9 @@ const SKIP_DIRECTORIES = [
   "target/",
   ".git/",
   "venv/",
-  "__pycache__/"
+  ".venv/",
+  "__pycache__/",
+  ".pytest_cache/"
 ];
 
 const SKIP_EXTENSIONS = new Set([

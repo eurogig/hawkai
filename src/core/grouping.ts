@@ -10,16 +10,55 @@ const RULE_RELATIONSHIPS: Record<string, {
   childRules?: string[]; // If this is usage, which hint rules relate to it
 }> = {
   // OpenAI patterns
-  "AI-FP-OPENAI-IMPORT": { type: "hint", parentRules: ["AI-FP-OPENAI-CLIENT", "AI-FP-CHAT-COMPLETION"] },
+  "AI-FP-OPENAI-IMPORT": { type: "hint", parentRules: ["AI-FP-OPENAI-CLIENT", "AI-FP-CHAT-COMPLETION", "AI-FP-OPENAI-ENDPOINT", "AI-FP-OPENAI-FUNCTION-CALLING"] },
   "AI-FP-OPENAI-CLIENT": { type: "usage", childRules: ["AI-FP-OPENAI-IMPORT"] },
-  "AI-FP-CHAT-COMPLETION": { type: "usage", childRules: ["AI-FP-OPENAI-IMPORT", "AI-FP-OPENAI-CLIENT"] },
+  "AI-FP-CHAT-COMPLETION": { type: "usage", childRules: ["AI-FP-OPENAI-IMPORT", "AI-FP-OPENAI-CLIENT", "AI-FP-GPT-MODEL", "AI-FP-GPT-MODEL-EXPANDED"] },
   "AI-FP-GPT-MODEL": { type: "hint", parentRules: ["AI-FP-CHAT-COMPLETION"] },
+  "AI-FP-GPT-MODEL-EXPANDED": { type: "hint", parentRules: ["AI-FP-CHAT-COMPLETION"] },
+  "AI-FP-OPENAI-ENDPOINT": { type: "usage", childRules: ["AI-FP-OPENAI-IMPORT"] },
+  "AI-FP-OPENAI-FUNCTION-CALLING": { type: "usage", childRules: ["AI-FP-OPENAI-IMPORT", "AI-FP-OPENAI-CLIENT"] },
   
   // Anthropic patterns
-  "AI-FP-ANTHROPIC-IMPORT": { type: "hint", parentRules: [] },
+  "AI-FP-ANTHROPIC-IMPORT": { type: "hint", parentRules: ["AI-FP-ANTHROPIC-ENDPOINT"] },
+  "AI-FP-ANTHROPIC-ENDPOINT": { type: "usage", childRules: ["AI-FP-ANTHROPIC-IMPORT", "AI-FP-CLAUDE-MODEL"] },
+  "AI-FP-CLAUDE-MODEL": { type: "hint", parentRules: ["AI-FP-ANTHROPIC-ENDPOINT"] },
+  
+  // Google Gemini patterns
+  "AI-FP-GOOGLE-GEMINI-IMPORT": { type: "hint", parentRules: ["AI-FP-GOOGLE-ENDPOINT"] },
+  "AI-FP-GEMINI-MODEL": { type: "hint", parentRules: ["AI-FP-GOOGLE-ENDPOINT"] },
+  "AI-FP-GOOGLE-ENDPOINT": { type: "usage", childRules: ["AI-FP-GOOGLE-GEMINI-IMPORT", "AI-FP-GEMINI-MODEL"] },
+  
+  // Azure OpenAI patterns
+  "AI-FP-AZURE-OPENAI-IMPORT": { type: "hint", parentRules: [] },
+  
+  // AWS Bedrock patterns
+  "AI-FP-AWS-BEDROCK-IMPORT": { type: "hint", parentRules: ["AI-FP-AWS-BEDROCK-ENDPOINT"] },
+  "AI-FP-AWS-BEDROCK-ENDPOINT": { type: "usage", childRules: ["AI-FP-AWS-BEDROCK-IMPORT"] },
+  
+  // Mistral patterns
+  "AI-FP-MISTRAL-IMPORT": { type: "hint", parentRules: [] },
+  "AI-FP-MISTRAL-MODEL": { type: "hint", parentRules: [] },
+  
+  // Other SDKs
+  "AI-FP-COHERE-IMPORT": { type: "hint", parentRules: [] },
+  "AI-FP-GROQ-IMPORT": { type: "hint", parentRules: [] },
+  "AI-FP-LM-STUDIO-IMPORT": { type: "hint", parentRules: [] },
+  "AI-FP-OLLAMA-IMPORT": { type: "hint", parentRules: [] },
+  "AI-FP-VLLM-IMPORT": { type: "hint", parentRules: [] },
+  "AI-FP-LLAMA-CPP-IMPORT": { type: "hint", parentRules: [] },
   
   // LangChain patterns
-  "AI-FP-LANGCHAIN-IMPORT": { type: "hint", parentRules: [] },
+  "AI-FP-LANGCHAIN-IMPORT": { type: "hint", parentRules: ["AI-FP-LCEL-PATTERN"] },
+  "AI-FP-LCEL-PATTERN": { type: "usage", childRules: ["AI-FP-LANGCHAIN-IMPORT"] },
+  
+  // Agent frameworks
+  "AI-FP-LANGGRAPH-IMPORT": { type: "hint", parentRules: ["AG-LANGGRAPH-STATEGRAPH", "AG-LANGGRAPH-INVOKE", "AG-LANGGRAPH-STREAM"] },
+  "AI-FP-AUTOGEN-IMPORT": { type: "hint", parentRules: ["AG-A2A-EXECUTOR", "AG-A2A-MESSAGING"] },
+  "AI-FP-CREWAI-IMPORT": { type: "hint", parentRules: ["AG-A2A-EXECUTOR", "AG-A2A-MESSAGING"] },
+  "AI-FP-SEMANTIC-KERNEL-IMPORT": { type: "hint", parentRules: [] },
+  "AI-FP-LLAMAINDEX-IMPORT": { type: "hint", parentRules: [] },
+  "AI-FP-DSPY-IMPORT": { type: "hint", parentRules: [] },
+  "AI-FP-HAYSTACK-IMPORT": { type: "hint", parentRules: [] },
   
   // MCP patterns
   "AI-MCP-IMPORT": { type: "hint", parentRules: ["AI-MCP-CLIENT", "AI-MCP-TOOLS"] },
@@ -33,10 +72,25 @@ const RULE_RELATIONSHIPS: Record<string, {
   "AG-ROUTER-ZEROSHOT": { type: "usage" },
   "AG-TOOL-SELECTION-CLASSIFIER": { type: "usage" },
   "AG-LOOP-AUTOEXEC": { type: "usage" },
+  "AG-LOOP-WITH-AGENT": { type: "usage" },
+  "AG-ASYNC-AGENT-LOOP": { type: "usage" },
   "AG-PLAN-EXEC": { type: "usage" },
+  "AG-LANGGRAPH-STATEGRAPH": { type: "usage", childRules: ["AI-FP-LANGGRAPH-IMPORT"] },
+  "AG-LANGGRAPH-NODES": { type: "usage", childRules: ["AI-FP-LANGGRAPH-IMPORT", "AG-LANGGRAPH-STATEGRAPH"] },
+  "AG-LANGGRAPH-EDGES": { type: "usage", childRules: ["AI-FP-LANGGRAPH-IMPORT", "AG-LANGGRAPH-STATEGRAPH"] },
+  "AG-LANGGRAPH-CONDITIONAL-EDGES": { type: "usage", childRules: ["AI-FP-LANGGRAPH-IMPORT", "AG-LANGGRAPH-STATEGRAPH"] },
+  "AG-LANGGRAPH-CREATE-AGENT": { type: "usage", childRules: ["AI-FP-LANGGRAPH-IMPORT"] },
+  "AG-LANGGRAPH-COMPILE": { type: "usage", childRules: ["AI-FP-LANGGRAPH-IMPORT", "AG-LANGGRAPH-STATEGRAPH"] },
+  "AG-LANGGRAPH-INVOKE": { type: "usage", childRules: ["AI-FP-LANGGRAPH-IMPORT", "AG-LANGGRAPH-STATEGRAPH", "AG-LANGGRAPH-COMPILE"] },
+  "AG-LANGGRAPH-STREAM": { type: "usage", childRules: ["AI-FP-LANGGRAPH-IMPORT", "AG-LANGGRAPH-STATEGRAPH", "AG-LANGGRAPH-COMPILE"] },
+  "AG-LANGCHAIN-INVOKE": { type: "usage", childRules: ["AI-FP-LANGCHAIN-IMPORT"] },
+  "AG-TOOL-DECORATOR": { type: "usage" },
+  "AG-TOOL-CLASS": { type: "usage" },
+  "AG-TOOL-LIST": { type: "usage" },
+  "AG-FUNCTION-TOOL-TYPE": { type: "usage", childRules: ["AI-FP-OPENAI-FUNCTION-CALLING"] },
   "AG-A2A-FRAMEWORK": { type: "hint", parentRules: ["AG-A2A-EXECUTOR", "AG-A2A-MESSAGING"] },
-  "AG-A2A-EXECUTOR": { type: "usage", childRules: ["AG-A2A-FRAMEWORK"] },
-  "AG-A2A-MESSAGING": { type: "usage", childRules: ["AG-A2A-FRAMEWORK"] },
+  "AG-A2A-EXECUTOR": { type: "usage", childRules: ["AG-A2A-FRAMEWORK", "AI-FP-AUTOGEN-IMPORT", "AI-FP-CREWAI-IMPORT"] },
+  "AG-A2A-MESSAGING": { type: "usage", childRules: ["AG-A2A-FRAMEWORK", "AI-FP-AUTOGEN-IMPORT", "AI-FP-CREWAI-IMPORT"] },
   "AG-A2A-ORCHESTRATION": { type: "hint", parentRules: ["AG-A2A-EXECUTOR", "AG-A2A-MESSAGING"] },
   
   // RAG patterns
