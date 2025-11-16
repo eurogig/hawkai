@@ -1,4 +1,5 @@
 import type { Finding, FindingGroup, Severity } from "@/types";
+import { applyDemotions, applyBoosts, baseWeightForRole, scoreToSeverity } from "@/core/scoring";
 
 /**
  * Rule relationships: which rules are "hints" (imports, config) vs "usage" (actual calls)
@@ -146,7 +147,7 @@ export function groupFindings(findings: Finding[]): FindingGroup[] {
     let hintCount = primaryRole === "hint" ? 1 : 0;
     let metadataCount = primaryRole === "metadata" ? 1 : 0;
     // Add related findings with diminishing returns
-    const MAX_RELATED = 6;
+    const MAX_RELATED = getRelatedCap();
     const relatedLimited = group.relatedFindings.slice(0, MAX_RELATED);
     relatedLimited.forEach((f, idx) => {
       const rel = RULE_RELATIONSHIPS[f.ruleId];
@@ -160,22 +161,12 @@ export function groupFindings(findings: Finding[]): FindingGroup[] {
       if (role === "hint") hintCount += 1;
       if (role === "metadata") metadataCount += 1;
     });
-    // Boosts for corroboration (usage + hints)
-    if (usageCount >= 1 && hintCount >= 1) {
-      score *= 1.15;
-    }
-    // Small bonus if metadata present with usage
-    if (usageCount >= 1 && metadataCount >= 1) {
-      score *= 1.05;
-    }
-    // Demotions: test/examples directories
-    if (isTestOrExamplePath(group.file)) {
-      score *= 0.85;
-    }
-    // Demotions: loop-only agent patterns without invoke/stream usage corroboration
-    if (isLoopOnlyGroup(group, contributing)) {
-      score *= 0.8;
-    }
+    // Boosts & demotions via config
+    score = applyBoosts(score, usageCount, hintCount, metadataCount);
+    score = applyDemotions(score, {
+      isTestOrExamplePath: isTestOrExamplePath(group.file),
+      loopOnlyWithoutInvoke: isLoopOnlyGroup(group, contributing)
+    });
     // Clamp to [0,1]
     score = Math.max(0, Math.min(1, score));
     group.compositeScore = score;
@@ -384,24 +375,14 @@ function primaryCandidateScore(f: Finding): number {
   return base + prefer;
 }
 
-function baseWeightForRole(role: "usage" | "hint" | "metadata"): number {
-  switch (role) {
-    case "usage":
-      return 0.75;
-    case "hint":
-      return 0.45;
-    case "metadata":
-      return 0.3;
-    default:
-      return 0.4;
+function getRelatedCap(): number {
+  try {
+    // lazy import to avoid cycles during build
+    const { getScoringConfig } = require("@/core/scoring");
+    return getScoringConfig().caps.perGroupRelated;
+  } catch {
+    return 6;
   }
-}
-
-function scoreToSeverity(score: number): Severity {
-  if (score >= 0.9) return "critical";
-  if (score >= 0.7) return "high";
-  if (score >= 0.5) return "moderate";
-  return "low";
 }
 
 function isTestOrExamplePath(path: string): boolean {

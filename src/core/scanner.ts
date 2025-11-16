@@ -13,6 +13,7 @@ import type {
 import { computeRiskScore } from "./score";
 import { repoSlug } from "./url";
 import { groupFindings } from "./grouping";
+import { getScoringConfig } from "./scoring";
 
 export interface ScanOptions {
   onProgress?: (update: { currentFile: string; scanned: number; total: number }) => void;
@@ -123,7 +124,7 @@ export function compileRuleDefinitions(defs: RuleDefinition[]): CompiledRule[] {
 
 export function applyRulesToFile(path: string, content: string, rules: CompiledRule[]): Finding[] {
   const findings: Finding[] = [];
-  const MAX_FILE_FINDINGS = 200; // performance cap to avoid pathological files
+  const MAX_FILE_FINDINGS = getScoringConfig().caps.perFileFindings; // performance cap to avoid pathological files
 
   for (const rule of rules) {
     if (!ruleAppliesToPath(rule, path)) continue;
