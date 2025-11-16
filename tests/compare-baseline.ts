@@ -20,11 +20,12 @@ const __dirname = dirname(__filename);
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const flags: any = { high: false, tolerance: 0.15 };
+  const flags: any = { high: false, tolerance: 0.15, baseline: "" };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === "--high") flags.high = true;
     if (a === "--tolerance") flags.tolerance = parseFloat(args[++i]);
+    if (a === "--baseline") flags.baseline = args[++i];
   }
   return flags;
 }
@@ -64,7 +65,7 @@ async function main() {
   const args = parseArgs();
   const { rules } = loadRulesFromFS();
   const compiledRules = compileRules(rules);
-  const baselinePath = resolve(__dirname, "baselines/high.json");
+  const baselinePath = resolve(__dirname, args.baseline || "baselines/high.json");
   const baseline = JSON.parse(readFileSync(baselinePath, "utf-8")) as {
     tolerancePct: number; repos: Array<{ name: string; slug: string; expectedFindings: number; }>;
   };
@@ -77,10 +78,16 @@ async function main() {
     const url = `https://github.com/${base.slug}`;
     const { report, totalFindings } = await scanRepo(url, compiledRules);
     const slug = repoSlug({ owner: report.repo.split("/")[0], repo: report.repo.split("/")[1], branch: report.branch });
-    const lower = Math.floor(base.expectedFindings * (1 - tolerance));
-    const upper = Math.ceil(base.expectedFindings * (1 + tolerance));
-    const ok = totalFindings >= lower && totalFindings <= upper;
-    console.log(`[BASELINE] ${base.name} (${slug}) expected=${base.expectedFindings} actual=${totalFindings} range=[${lower}, ${upper}] -> ${ok ? "OK" : "FAIL"}`);
+    let ok = true;
+    let lower = 0;
+    let upper = 0;
+    if (base.expectedFindings >= 0) {
+      lower = Math.floor(base.expectedFindings * (1 - tolerance));
+      upper = Math.ceil(base.expectedFindings * (1 + tolerance));
+      ok = totalFindings >= lower && totalFindings <= upper;
+    }
+    console.log(`[BASELINE] ${base.name} (${slug}) expected=${base.expectedFindings} actual=${totalFindings}` +
+      (base.expectedFindings >= 0 ? ` range=[${lower}, ${upper}] -> ${ok ? "OK" : "FAIL"}` : " (record-only)"));
     results.push({ name: base.name, slug, expected: base.expectedFindings, actual: totalFindings, ok });
     if (!ok) failed += 1;
   }
