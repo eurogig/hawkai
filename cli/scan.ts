@@ -313,7 +313,7 @@ async function main() {
     // Optional: build reachability graph
     let graphOutput = "";
     if (args.graph) {
-      const { buildCoarseGraph, enrichGraphWithCallEdges, toDot, toMermaid } = await import("../src/core/reachability.js");
+      const { buildCoarseGraph, enrichGraphWithCallEdges, propagateConfidence, toDot, toMermaid } = await import("../src/core/reachability.js");
       const groups = report.groups || [];
       let graph = buildCoarseGraph(groups);
       
@@ -345,6 +345,9 @@ async function main() {
         
         // Enrich graph with call edges
         graph = enrichGraphWithCallEdges(graph, groups, fileContents);
+        
+        // Propagate confidence along paths and update edge weights
+        graph = propagateConfidence(graph);
       }
       
       if (args.graph === "json") {

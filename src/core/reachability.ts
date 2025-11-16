@@ -216,6 +216,128 @@ export function enrichGraphWithCallEdges(
   };
 }
 
+/**
+ * Propagate confidence along paths and update edge weights.
+ * - Calculates edge weights based on source/target node confidence
+ * - Finds paths and applies confidence decay (longer paths = lower confidence)
+ * - Updates edge weights to reflect path-based confidence
+ */
+export function propagateConfidence(graph: ReachabilityGraph): ReachabilityGraph {
+  const nodesById = new Map<string, GraphNode>();
+  for (const node of graph.nodes) {
+    nodesById.set(node.id, node);
+  }
+
+  // Build adjacency list
+  const adjacency = new Map<string, GraphEdge[]>();
+  for (const edge of graph.edges) {
+    if (!adjacency.has(edge.from)) {
+      adjacency.set(edge.from, []);
+    }
+    adjacency.get(edge.from)!.push(edge);
+  }
+
+  // Calculate base edge weights from node confidence
+  const edgeWeights = new Map<string, number>();
+  for (const edge of graph.edges) {
+    const fromNode = nodesById.get(edge.from);
+    const toNode = nodesById.get(edge.to);
+    
+    // Base weight: combine source and target confidence, or use existing weight
+    let baseWeight = edge.weight ?? 0.5;
+    
+    if (fromNode && toNode) {
+      const fromConf = fromNode.compositeScore ?? fromNode.confidence ?? 0.5;
+      const toConf = toNode.compositeScore ?? toNode.confidence ?? 0.5;
+      // Geometric mean of source and target confidence
+      baseWeight = Math.sqrt(fromConf * toConf);
+    } else if (fromNode) {
+      baseWeight = fromNode.compositeScore ?? fromNode.confidence ?? 0.5;
+    } else if (toNode) {
+      baseWeight = toNode.compositeScore ?? toNode.confidence ?? 0.5;
+    }
+    
+    // Boost certain edge kinds
+    let kindBoost = 1.0;
+    if (edge.kind === "uses_model" || edge.kind === "uses_tool") {
+      kindBoost = 1.15; // 15% boost for AI-specific edges
+    } else if (edge.kind === "uses_endpoint") {
+      kindBoost = 1.2; // 20% boost for endpoint edges (highest risk)
+    }
+    
+    baseWeight = Math.min(1.0, baseWeight * kindBoost);
+    edgeWeights.set(edge.id, baseWeight);
+  }
+
+  // Find paths and apply confidence decay
+  const DECAY_RATE = 0.85; // Each hop reduces confidence by 15%
+  const MAX_PATH_LENGTH = 5; // Limit path traversal depth
+  const pathScores = new Map<string, number>(); // edge id -> best path score
+
+  function findPaths(
+    start: string,
+    visited: Set<string>,
+    pathLength: number,
+    depth: number
+  ): void {
+    if (depth > MAX_PATH_LENGTH || visited.has(start)) {
+      return;
+    }
+
+    visited.add(start);
+
+    const edges = adjacency.get(start) || [];
+    for (const edge of edges) {
+      const edgeWeight = edgeWeights.get(edge.id) ?? 0.5;
+      // Apply decay based on path length (number of hops so far)
+      const pathConfidence = edgeWeight * Math.pow(DECAY_RATE, pathLength);
+      
+      // Track best path score for each edge
+      const current = pathScores.get(edge.id) ?? 0;
+      pathScores.set(edge.id, Math.max(current, pathConfidence));
+
+      // Continue traversal (increment path length when following edge)
+      if (!visited.has(edge.to)) {
+        findPaths(edge.to, visited, pathLength + 1, depth + 1);
+      }
+    }
+
+    visited.delete(start);
+  }
+
+  // Start path finding from high-confidence nodes
+  const highConfNodes = graph.nodes
+    .filter(n => (n.compositeScore ?? n.confidence ?? 0) >= 0.7)
+    .map(n => n.id);
+  
+  for (const nodeId of highConfNodes) {
+    findPaths(nodeId, new Set(), 0, 0);
+  }
+
+  // Update edge weights with propagated confidence
+  const updatedEdges = graph.edges.map(edge => {
+    const baseWeight = edgeWeights.get(edge.id) ?? edge.weight ?? 0.5;
+    const pathScore = pathScores.get(edge.id) ?? 0;
+    
+    // Combine base weight and path score (weighted average)
+    const finalWeight = baseWeight * 0.6 + pathScore * 0.4;
+    
+    return {
+      ...edge,
+      weight: Math.max(0, Math.min(1.0, finalWeight))
+    };
+  });
+
+  return {
+    ...graph,
+    edges: updatedEdges,
+    stats: {
+      nodeCount: graph.nodes.length,
+      edgeCount: updatedEdges.length
+    }
+  };
+}
+
 export function toDot(graph: ReachabilityGraph): string {
   const lines: string[] = [];
   lines.push("digraph G {");
