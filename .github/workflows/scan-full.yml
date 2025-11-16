@@ -19,6 +19,8 @@ jobs:
       - name: Install deps
         run: npm ci
       - name: Run full baseline comparator (record & check)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx tsx tests/compare-baseline.ts --baseline tests/baselines/full.json --tolerance 0.30
       - name: Upload report
         if: always()

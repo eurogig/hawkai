@@ -24,6 +24,8 @@ jobs:
       - name: Install deps
         run: npm ci
       - name: Run comparator against baselines (high priority)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx tsx tests/compare-baseline.ts --high --tolerance 0.25
       - name: Upload report on failure
         if: failure()
