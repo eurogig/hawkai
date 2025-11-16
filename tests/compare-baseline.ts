@@ -64,26 +64,18 @@ async function main() {
   const args = parseArgs();
   const { rules } = loadRulesFromFS();
   const compiledRules = compileRules(rules);
-  const catalog = loadCatalog();
   const baselinePath = resolve(__dirname, "baselines/high.json");
   const baseline = JSON.parse(readFileSync(baselinePath, "utf-8")) as {
-    tolerancePct: number; repos: Array<{ name: string; slugContains: string; expectedFindings: number; }>;
+    tolerancePct: number; repos: Array<{ name: string; slug: string; expectedFindings: number; }>;
   };
   const tolerance = args.tolerance ?? baseline.tolerancePct ?? 0.15;
-
-  // Choose repos
-  const repos = catalog.repositories.filter((r: any) => {
-    const slugs = baseline.repos.map(b => b.slugContains);
-    return slugs.some(s => r.url.includes(s));
-  });
 
   const results: Array<{ name: string; slug: string; expected: number; actual: number; ok: boolean; }> = [];
   let failed = 0;
 
-  for (const repo of repos) {
-    const base = baseline.repos.find(b => repo.url.includes(b.slugContains));
-    if (!base) continue;
-    const { report, totalFindings } = await scanRepo(repo.url, compiledRules);
+  for (const base of baseline.repos) {
+    const url = `https://github.com/${base.slug}`;
+    const { report, totalFindings } = await scanRepo(url, compiledRules);
     const slug = repoSlug({ owner: report.repo.split("/")[0], repo: report.repo.split("/")[1], branch: report.branch });
     const lower = Math.floor(base.expectedFindings * (1 - tolerance));
     const upper = Math.ceil(base.expectedFindings * (1 + tolerance));
