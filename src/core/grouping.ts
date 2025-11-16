@@ -238,10 +238,12 @@ function groupFileFindings(file: string, findings: Finding[]): FindingGroup[] {
   for (const [ruleId, ruleUsageFindings] of usageByRule.entries()) {
     if (ruleUsageFindings.length === 0) continue;
     
-    // Use the first finding as primary (or highest severity)
-    const primary = ruleUsageFindings.reduce((a, b) => 
-      severityToNumber(a.severity) > severityToNumber(b.severity) ? a : b
-    );
+    // Choose a primary based on severity, confidence, and invoke/endpoint preference
+    const primary = ruleUsageFindings.reduce((best, cand) => {
+      const bestScore = primaryCandidateScore(best);
+      const candScore = primaryCandidateScore(cand);
+      return candScore > bestScore ? cand : best;
+    });
     
     // Collect all related findings for this rule type
     const relatedSet = new Set<string>(); // Use Set to deduplicate by ID
@@ -281,13 +283,16 @@ function groupFileFindings(file: string, findings: Finding[]): FindingGroup[] {
     const riskBoost = related.length > 0 ? 1 : 0;
     const severity = boostSeverity(primary.severity, riskBoost);
     
-    // If multiple usage findings of same type, include them as related
-    const otherUsages = ruleUsageFindings.filter(u => u.id !== primary.id);
+    // If multiple usage findings of same type, include a limited subset as related (prefer proximity to primary)
+    const otherUsagesAll = ruleUsageFindings.filter(u => u.id !== primary.id);
+    const otherUsages = otherUsagesAll
+      .sort((a, b) => Math.abs((a.line ?? 0) - (primary.line ?? 0)) - Math.abs((b.line ?? 0) - (primary.line ?? 0)))
+      .slice(0, 3);
     
     groups.push({
       id: `group-${file}-${ruleId}`,
       primaryFinding: primary,
-      relatedFindings: [...related, ...otherUsages], // Include other same-type usages and hints
+      relatedFindings: [...related, ...otherUsages], // Include other same-type usages and hints (limited)
       file: primary.file,
       severity,
       category: primary.category,
@@ -363,6 +368,20 @@ function boostSeverity(severity: Severity, boost: number): Severity {
   const current = levels.indexOf(severity);
   const boosted = Math.min(current + boost, levels.length - 1);
   return levels[boosted] as Severity;
+}
+
+function primaryCandidateScore(f: Finding): number {
+  // Base on severity + confidence; prefer invoke/stream/endpoint rules slightly
+  const sev = severityToNumber(f.severity);
+  const base = sev * 0.6 + (f.confidence ?? 0) * 0.4;
+  const id = f.ruleId;
+  const prefer = (
+    id === "AG-LANGGRAPH-INVOKE" ||
+    id === "AG-LANGGRAPH-STREAM" ||
+    id === "AI-FP-OPENAI-ENDPOINT" ||
+    id === "AG-LANGCHAIN-INVOKE"
+  ) ? 0.15 : 0;
+  return base + prefer;
 }
 
 function baseWeightForRole(role: "usage" | "hint" | "metadata"): number {
