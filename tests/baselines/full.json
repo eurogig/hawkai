@@ -12,11 +12,6 @@
       "expectedFindings": 16435
     },
     {
-      "name": "LangChain Templates",
-      "slug": "langchain-ai/langchain-templates",
-      "expectedFindings": -1
-    },
-    {
       "name": "LlamaIndex",
       "slug": "run-llama/llama_index",
       "expectedFindings": 8275
