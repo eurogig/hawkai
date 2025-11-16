@@ -309,7 +309,7 @@ function groupFileFindings(file: string, findings: Finding[]): FindingGroup[] {
       loopOnlyWithoutInvoke: isLoopOnlyGroup({ id: "", primaryFinding: primary, relatedFindings: relatedLimited, file, severity, category: primary.category, riskBoost, } as any, contributing),
       isMockLikePath: isMockLikePath(primary.file)
     });
-    const thresholds = require("@/core/scoring").getScoringConfig().thresholds;
+    const thresholds = getScoringConfig().thresholds;
     const mapped = scoreToSeverity(Math.max(0, Math.min(1, score)));
     const finalSeverity = severityToNumber(mapped) > severityToNumber(severity) ? mapped : severity;
     // enforce min-evidence floor for non-usage groups (shouldn't apply here since we are in usage grouping)
@@ -330,7 +330,7 @@ function groupFileFindings(file: string, findings: Finding[]): FindingGroup[] {
   // Handle standalone hints (no usage found)
   for (const hint of hintFindings) {
     if (processed.has(hint.id)) continue;
-    const thresholds2 = require("@/core/scoring").getScoringConfig().thresholds;
+    const thresholds2 = getScoringConfig().thresholds;
     const comp = baseWeightForRole("hint") * (hint.confidence ?? 0.5);
     if (comp < (thresholds2.minGroup ?? 0)) {
       processed.add(hint.id);
@@ -420,8 +420,6 @@ function primaryCandidateScore(f: Finding): number {
 
 function getRelatedCap(): number {
   try {
-    // lazy import to avoid cycles during build
-    const { getScoringConfig } = require("@/core/scoring");
     return getScoringConfig().caps.perGroupRelated;
   } catch {
     return 6;
