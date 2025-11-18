@@ -404,7 +404,10 @@ export function generateRedTeamingPlans(
     }
 
     // Generate path-specific attacks
-    const sourceType = path.source.label.toLowerCase();
+    // Use both label and target type for better matching
+    const sourceLabel = path.source.label.toLowerCase();
+    const sourceId = path.source.id.toLowerCase();
+    const sourceType = `${sourceLabel} ${sourceId}`; // Combine for matching
     const transformTypes = path.transforms.map(t => t.label.toLowerCase());
     const sinkType = path.sink.label.toLowerCase();
     const pathAttacks = generatePathSpecificAttacks(sourceType, transformTypes, sinkType).map(attack => ({
@@ -436,6 +439,33 @@ export function generateRedTeamingPlans(
 
     // Determine target
     const targetType = determineTargetType(path.source);
+    
+    // Add Streamlit-specific attacks if target is Streamlit (even if path-specific didn't catch it)
+    if (targetType === "streamlit") {
+      // Check if we already have Streamlit attacks
+      const hasStreamlitAttack = allAttacks.some(a => 
+        a.title.toLowerCase().includes("streamlit") || 
+        a.description.toLowerCase().includes("streamlit")
+      );
+      
+      if (!hasStreamlitAttack) {
+        allAttacks.unshift({
+          title: "Prompt injection via Streamlit interface",
+          description: "Inject malicious instructions through Streamlit chat/text inputs to influence LLM behavior and tool invocation.",
+          category: "path_specific",
+          priority: path.riskLevel
+        });
+        
+        if (sinkType.includes("tool")) {
+          allAttacks.unshift({
+            title: "Tool invocation via Streamlit prompt injection",
+            description: "Coerce LLM to invoke tools directly through carefully crafted Streamlit input prompts, bypassing intended guardrails.",
+            category: "path_specific",
+            priority: path.riskLevel
+          });
+        }
+      }
+    }
 
     // Create a more unique plan ID that includes transforms to avoid collisions
     const transformPart = path.transforms.length > 0 

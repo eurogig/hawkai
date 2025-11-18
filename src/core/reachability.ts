@@ -412,8 +412,9 @@ export function detectRiskyPaths(graph: ReachabilityGraph): RiskyPath[] {
     const file = node.file?.toLowerCase() || "";
     const nodeId = node.id.toLowerCase();
     
-    // Check for Streamlit input rule ID
+    // Check for Streamlit input rule ID (check both nodeId and label)
     if (nodeId.includes("ag-streamlit-input") || label.includes("ag-streamlit-input")) {
+      console.debug(`[Reachability] Streamlit node detected as source: ${node.id} (label: ${node.label})`);
       return true;
     }
     
@@ -571,6 +572,14 @@ export function detectRiskyPaths(graph: ReachabilityGraph): RiskyPath[] {
 
   // Classify nodes (capped for performance)
   const allSourceNodes = graph.nodes.filter(isSourceNode);
+  console.debug(`[Reachability] Found ${allSourceNodes.length} source nodes out of ${graph.nodes.length} total nodes`);
+  const streamlitSources = allSourceNodes.filter(n => 
+    n.id.toLowerCase().includes("ag-streamlit-input") || 
+    n.label.toLowerCase().includes("ag-streamlit-input")
+  );
+  if (streamlitSources.length > 0) {
+    console.debug(`[Reachability] Streamlit source nodes:`, streamlitSources.map(n => ({ id: n.id, label: n.label, file: n.file })));
+  }
   const allSinkNodes = graph.nodes.filter(isSinkNode);
   
   // Prioritize high-confidence sources and sinks, cap total

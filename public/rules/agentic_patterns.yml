@@ -374,7 +374,7 @@
   confidence: 0.65
 - id: AG-STREAMLIT-INPUT
   title: "Streamlit user input detected"
-  severity: "moderate"
+  severity: "high"
   category: "Agentic Design"
   owasp:
     - "LLM01: Prompt Injection"
