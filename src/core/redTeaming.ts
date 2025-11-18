@@ -351,8 +351,12 @@ export function generateRedTeamingPlans(
     if (!seenPaths.has(key)) {
       seenPaths.add(key);
       uniquePaths.push(path);
+    } else {
+      console.debug(`[RedTeaming] Skipping duplicate risky path: ${path.source.id} → ${path.sink.id} (key: ${key})`);
     }
   }
+  
+  console.debug(`[RedTeaming] Deduplicated ${riskyPaths.length} risky paths to ${uniquePaths.length} unique paths`);
 
   const plans: RedTeamingPlan[] = [];
 
@@ -411,8 +415,14 @@ export function generateRedTeamingPlans(
     // Determine target
     const targetType = determineTargetType(path.source);
 
+    // Create a more unique plan ID that includes transforms to avoid collisions
+    const transformPart = plan.path.transforms.length > 0 
+      ? `-${plan.path.transforms.map(t => t.id).join("-")}` 
+      : "";
+    const planId = `plan-${path.source.id}${transformPart}-${path.sink.id}`;
+
     const plan: RedTeamingPlan = {
-      id: `plan-${path.source.id}-${path.sink.id}`,
+      id: planId,
       target: {
         label: path.source.label,
         file: path.source.file || "",
@@ -458,9 +468,11 @@ export function generateRedTeamingPlans(
       deduplicated.push(plan);
     } else {
       // Log when we skip a duplicate (for debugging)
-      console.debug(`[RedTeaming] Skipping duplicate plan: ${plan.target.label} (key: ${key})`);
+      console.warn(`[RedTeaming] Skipping duplicate plan: ${plan.target.label} (key: ${key})`);
     }
   }
+  
+  console.debug(`[RedTeaming] Deduplicated ${plans.length} plans to ${deduplicated.length} unique plans`);
 
   // Sort by risk level and confidence
   const riskOrder = { critical: 0, high: 1, moderate: 2, low: 3 };

@@ -53,17 +53,36 @@ export default function RedTeamingPlans({ plans }: RedTeamingPlansProps) {
             {/* Path */}
             <div className="mb-3 p-2 bg-grey-charcoal border border-steampunk-brass">
               <p className="text-xs font-bold text-steampunk-brass mb-1">Path:</p>
-              <p className="text-xs text-terminal-green font-mono">
-                {plan.path.source.label} 
+              <div className="text-xs text-terminal-green font-mono space-y-1">
+                <div>
+                  <span className="text-steampunk-brass">Source:</span> {plan.path.source.label}
+                  {plan.path.source.file && (
+                    <span className="text-grey-ash"> ({plan.path.source.file}{plan.path.source.line ? `:${plan.path.source.line}` : ""})</span>
+                  )}
+                </div>
                 {plan.path.transforms.length > 0 && (
-                  <>
-                    {" → "}
-                    {plan.path.transforms.map(t => t.label).join(" → ")}
-                  </>
+                  <div>
+                    <span className="text-steampunk-brass">Transforms:</span> {plan.path.transforms.map((t, i) => (
+                      <span key={i}>
+                        {i > 0 && " → "}
+                        {t.label}
+                        {t.file && (
+                          <span className="text-grey-ash"> ({t.file}{t.line ? `:${t.line}` : ""})</span>
+                        )}
+                      </span>
+                    )).join("")}
+                  </div>
                 )}
-                {" → "}
-                {plan.path.sink.label}
-              </p>
+                <div>
+                  <span className="text-steampunk-brass">Sink:</span> {plan.path.sink.label}
+                  {plan.path.sink.file && (
+                    <span className="text-grey-ash"> ({plan.path.sink.file}{plan.path.sink.line ? `:${plan.path.sink.line}` : ""})</span>
+                  )}
+                </div>
+                <div className="text-grey-ash mt-1">
+                  Path ID: {plan.id}
+                </div>
+              </div>
             </div>
 
             {/* OWASP Risks */}
