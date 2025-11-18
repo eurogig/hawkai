@@ -66,7 +66,17 @@ export default function ReachabilityGraphView({ graph, riskyPaths = [], onClose 
         ].filter(Boolean).join(" "),
       }));
 
-      const edgeElements = graph.edges.map((edge) => ({
+      // Create a Set of valid node IDs for edge validation
+      const validNodeIds = new Set(graph.nodes.map(n => n.id));
+
+      // Filter edges to only include those where both source and target nodes exist
+      const validEdges = graph.edges.filter(edge => 
+        validNodeIds.has(edge.from) && validNodeIds.has(edge.to)
+      );
+
+      console.log(`Filtered edges: ${graph.edges.length} -> ${validEdges.length} (removed ${graph.edges.length - validEdges.length} invalid edges)`);
+
+      const edgeElements = validEdges.map((edge) => ({
         data: {
           id: edge.id,
           source: edge.from,
