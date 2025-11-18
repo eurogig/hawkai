@@ -310,15 +310,18 @@ async function main() {
     
     log(`[INFO] Scan complete! Found ${result.findings.length} findings`);
     
-    // Optional: build reachability graph
+    // Build reachability graph and red-teaming plans (always, for debugging and features)
     let graphOutput = "";
     let riskyPaths: any[] = [];
     let redTeamingPlans: any[] = [];
-    if (args.graph) {
+    let graph: any = null;
+    
+    // Always build graph (needed for red-teaming plans)
+    {
       const { buildCoarseGraph, enrichGraphWithCallEdges, propagateConfidence, detectRiskyPaths, toDot, toMermaid } = await import("../src/core/reachability.js");
       const { generateRedTeamingPlans } = await import("../src/core/redTeaming.js");
       const groups = report.groups || [];
-      let graph = buildCoarseGraph(groups);
+      let tempGraph = buildCoarseGraph(groups);
       
       // Enrich with call edges if we have file contents
       if (groups.length > 0) {
@@ -347,22 +350,25 @@ async function main() {
         }
         
         // Enrich graph with call edges
-        graph = enrichGraphWithCallEdges(graph, groups, fileContents);
+        tempGraph = enrichGraphWithCallEdges(tempGraph, groups, fileContents);
         
         // Propagate confidence along paths and update edge weights
-        graph = propagateConfidence(graph);
+        tempGraph = propagateConfidence(tempGraph);
         
         // Detect risky paths
-        riskyPaths = detectRiskyPaths(graph);
+        riskyPaths = detectRiskyPaths(tempGraph);
         
         // Generate red-teaming plans
         if (riskyPaths.length > 0) {
-          const { loadRuleIndex } = await import("../src/core/rules.js");
-          const { rules: ruleDefs, owasp } = await loadRuleIndex();
+          // Use the OWASP metadata we already loaded from filesystem
           redTeamingPlans = generateRedTeamingPlans(riskyPaths, report, owasp);
         }
       }
       
+      // Store graph for output
+      graph = tempGraph;
+      
+      // Format graph output if requested
       if (args.graph === "json") {
         graphOutput = JSON.stringify({ graph, riskyPaths, redTeamingPlans }, null, 2);
       } else if (args.graph === "dot") {
@@ -375,6 +381,13 @@ async function main() {
     if (args.graphOnly && args.graph) {
       console.log(graphOutput);
       return;
+    }
+    
+    // Always show red-teaming plans in summary/text output (not just when --graph is specified)
+    if (redTeamingPlans.length === 0 && riskyPaths.length > 0) {
+      // Try to generate plans if we have risky paths but no plans yet
+      const { generateRedTeamingPlans } = await import("../src/core/redTeaming.js");
+      redTeamingPlans = generateRedTeamingPlans(riskyPaths, report, owasp);
     }
 
     // Flatten findings from groups for output
