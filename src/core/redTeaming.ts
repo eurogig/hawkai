@@ -420,14 +420,31 @@ export function generateRedTeamingPlans(
     plans.push(plan);
   }
 
+  // Deduplicate plans based on source + sink + transforms combination
+  const planKey = (plan: RedTeamingPlan): string => {
+    const transformIds = plan.path.transforms.map(t => t.id).sort().join("|");
+    return `${plan.path.source.id}|${transformIds}|${plan.path.sink.id}`;
+  };
+
+  const seen = new Set<string>();
+  const deduplicated: RedTeamingPlan[] = [];
+  
+  for (const plan of plans) {
+    const key = planKey(plan);
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduplicated.push(plan);
+    }
+  }
+
   // Sort by risk level and confidence
   const riskOrder = { critical: 0, high: 1, moderate: 2, low: 3 };
-  plans.sort((a, b) => {
+  deduplicated.sort((a, b) => {
     const riskDiff = riskOrder[a.riskLevel] - riskOrder[b.riskLevel];
     if (riskDiff !== 0) return riskDiff;
     return b.confidence - a.confidence;
   });
 
-  return plans;
+  return deduplicated;
 }
 

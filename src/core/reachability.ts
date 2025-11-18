@@ -421,7 +421,7 @@ export function detectRiskyPaths(graph: ReachabilityGraph): RiskyPath[] {
     for (const edge of edgesFromNode) {
       const target = edge.to.toLowerCase();
       // Import patterns for input sources
-      if (/input|argv|args|stdin|readline|argparse|click|dotenv|process\.env|getenv|readfile|read\(|open\(/i.test(target)) {
+      if (/input|argv|args|stdin|readline|argparse|click|dotenv|process\.env|getenv|readfile|read\(|open\(|streamlit|st\./i.test(target)) {
         return true;
       }
       // HTTP/request patterns (incoming)
@@ -440,7 +440,7 @@ export function detectRiskyPaths(graph: ReachabilityGraph): RiskyPath[] {
           const sourceLabel = sourceNode.label.toLowerCase();
           const sourceId = sourceNode.id.toLowerCase();
           // Check if incoming from input patterns
-          if (/input|argv|args|stdin|request|fetch|http|body|query|params|env|config|readfile|read\(/i.test(sourceLabel + sourceId)) {
+          if (/input|argv|args|stdin|request|fetch|http|body|query|params|env|config|readfile|read\(|streamlit|st\./i.test(sourceLabel + sourceId)) {
             return true;
           }
         }
@@ -449,6 +449,10 @@ export function detectRiskyPaths(graph: ReachabilityGraph): RiskyPath[] {
     
     // User input patterns in label/file
     if (/input|argv|args|stdin|readline|request\.(body|query|params|headers)|req\.(body|query|params|headers)/i.test(label + file + nodeId)) {
+      return true;
+    }
+    // Streamlit input patterns (st.text_input, st.chat_input, st.text_area, etc.)
+    if (/st\.(text_input|chat_input|text_area|number_input|selectbox|multiselect|slider|file_uploader|text|write)/i.test(label + file + nodeId)) {
       return true;
     }
     // File reads (but not writes)
