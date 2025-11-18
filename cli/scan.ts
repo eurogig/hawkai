@@ -15,6 +15,7 @@ import { parseGitHubUrl, repoSlug } from "../src/core/url.js";
 import { downloadRepoArchive, resolveDefaultBranch } from "../src/core/github.js";
 import { compileRules } from "../src/core/rules.js";
 import { createReport, scanArchive } from "../src/core/scanner.js";
+import { unzipArchive, decodeUtf8, isLikelyBinary } from "../src/core/unzip.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,6 +25,8 @@ interface CLIArgs {
   branch?: string;
   output?: "json" | "text" | "summary";
   verbose?: boolean;
+  graph?: "json" | "dot" | "mermaid";
+  graphOnly?: boolean;
 }
 
 function parseArgs(): CLIArgs {
@@ -42,6 +45,10 @@ function parseArgs(): CLIArgs {
       parsed.output = args[++i] as "json" | "text" | "summary";
     } else if (arg === "--verbose" || arg === "-v") {
       parsed.verbose = true;
+    } else if (arg === "--graph") {
+      parsed.graph = args[++i] as "json" | "dot" | "mermaid";
+    } else if (arg === "--graph-only") {
+      parsed.graphOnly = true;
     } else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -69,12 +76,15 @@ Usage:
 Options:
   -b, --branch <branch>    Specify branch to scan (default: auto-detect)
   -o, --output <format>    Output format: json, text, or summary (default: summary)
+      --graph <format>     Emit reachability graph: json, dot, mermaid (optional)
+      --graph-only         Output only the graph (requires --graph)
   -v, --verbose            Show detailed progress
   -h, --help               Show this help message
 
 Examples:
   npm run scan -- https://github.com/user/repo
   npm run scan -- https://github.com/user/repo --branch main --output json
+  npm run scan -- https://github.com/user/repo --graph mermaid --graph-only
   npm run scan -- https://github.com/user/repo --verbose
 
 Output Formats:
@@ -300,6 +310,64 @@ async function main() {
     
     log(`[INFO] Scan complete! Found ${result.findings.length} findings`);
     
+    // Optional: build reachability graph
+    let graphOutput = "";
+    let riskyPaths: any[] = [];
+    if (args.graph) {
+      const { buildCoarseGraph, enrichGraphWithCallEdges, propagateConfidence, detectRiskyPaths, toDot, toMermaid } = await import("../src/core/reachability.js");
+      const groups = report.groups || [];
+      let graph = buildCoarseGraph(groups);
+      
+      // Enrich with call edges if we have file contents
+      if (groups.length > 0) {
+        const fileContents = new Map<string, string>();
+        const filesWithFindings = new Set<string>();
+        
+        // Collect files that have findings
+        for (const group of groups) {
+          if (group.primaryFinding.file) filesWithFindings.add(group.primaryFinding.file);
+          for (const r of group.relatedFindings) {
+            if (r.file) filesWithFindings.add(r.file);
+          }
+        }
+        
+        // Extract file contents from archive
+        const entries = unzipArchive(buffer);
+        for (const entry of entries) {
+          if (filesWithFindings.has(entry.path) && !isLikelyBinary(entry.data)) {
+            try {
+              const text = decodeUtf8(entry.data);
+              fileContents.set(entry.path, text);
+            } catch {
+              // Skip files that can't be decoded
+            }
+          }
+        }
+        
+        // Enrich graph with call edges
+        graph = enrichGraphWithCallEdges(graph, groups, fileContents);
+        
+        // Propagate confidence along paths and update edge weights
+        graph = propagateConfidence(graph);
+        
+        // Detect risky paths
+        riskyPaths = detectRiskyPaths(graph);
+      }
+      
+      if (args.graph === "json") {
+        graphOutput = JSON.stringify({ graph, riskyPaths }, null, 2);
+      } else if (args.graph === "dot") {
+        graphOutput = toDot(graph);
+      } else if (args.graph === "mermaid") {
+        graphOutput = toMermaid(graph);
+      }
+    }
+
+    if (args.graphOnly && args.graph) {
+      console.log(graphOutput);
+      return;
+    }
+
     // Flatten findings from groups for output
     const allFindings: Finding[] = [];
     
@@ -352,6 +420,27 @@ async function main() {
     }
     
     console.log(output);
+    if (graphOutput) {
+      console.log("\n--- Reachability Graph ---\n");
+      console.log(graphOutput);
+    }
+    if (riskyPaths.length > 0 && !args.graphOnly) {
+      console.log("\n--- Risky Paths Detected ---\n");
+      riskyPaths.slice(0, 10).forEach((path, i) => {
+        console.log(`${i + 1}. [${path.riskLevel.toUpperCase()}] Confidence: ${Math.round(path.confidence * 100)}%`);
+        console.log(`   Source: ${path.source.label} (${path.source.file}${path.source.line ? `:${path.source.line}` : ""})`);
+        if (path.transforms.length > 0) {
+          const transforms = path.transforms.map(t => t.label).join(", ");
+          console.log(`   Transforms: ${transforms}`);
+        }
+        console.log(`   Sink: ${path.sink.label} (${path.sink.file}${path.sink.line ? `:${path.sink.line}` : ""})`);
+        console.log(`   Path length: ${path.path.length} nodes`);
+        console.log("");
+      });
+      if (riskyPaths.length > 10) {
+        console.log(`   ... and ${riskyPaths.length - 10} more risky paths`);
+      }
+    }
     
   } catch (error) {
     console.error("\n[ERROR] Scan failed:", (error as Error).message);

@@ -4,6 +4,7 @@ import type { RulePackIndex } from "@/types";
 import InventoryGrid from "./Inventory";
 import FindingsTable from "./FindingsTable";
 import RiskScoreBadge from "./RiskScore";
+import ReachabilityGraphView from "./ReachabilityGraph";
 
 interface ReportProps {
   report: Report;
@@ -18,6 +19,7 @@ const ReportView = forwardRef<HTMLDivElement, ReportProps>(function ReportView(
 ) {
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showGraph, setShowGraph] = useState(false);
 
   // Trigger highlight animation when report first appears
   useEffect(() => {
@@ -77,6 +79,19 @@ const ReportView = forwardRef<HTMLDivElement, ReportProps>(function ReportView(
         <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
           <RiskScoreBadge score={report.score} />
           <div className="flex gap-3">
+            {report.graph && (
+              <button
+                onClick={() => setShowGraph(true)}
+                className="border-2 border-steampunk-brass px-4 py-2 text-xs font-bold text-steampunk-brass uppercase transition hover:border-steampunk-brass-bright hover:text-steampunk-brass-bright hover:shadow-lg font-mono"
+              >
+                [VIEW GRAPH]
+                {report.riskyPaths && report.riskyPaths.length > 0 && (
+                  <span className="ml-2 px-2 py-0.5 bg-red-900 text-red-200 text-xs">
+                    {report.riskyPaths.length}
+                  </span>
+                )}
+              </button>
+            )}
             <button
               onClick={onExportMarkdown}
               className="border-2 border-steampunk-brass px-4 py-2 text-xs font-bold text-steampunk-brass uppercase transition hover:border-steampunk-brass-bright hover:text-steampunk-brass-bright hover:shadow-lg font-mono"
@@ -141,6 +156,15 @@ const ReportView = forwardRef<HTMLDivElement, ReportProps>(function ReportView(
           owasp={owasp}
         />
       </div>
+
+      {/* Reachability Graph Overlay */}
+      {showGraph && report.graph && (
+        <ReachabilityGraphView
+          graph={report.graph}
+          riskyPaths={report.riskyPaths || []}
+          onClose={() => setShowGraph(false)}
+        />
+      )}
     </section>
   );
 });

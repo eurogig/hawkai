@@ -11,12 +11,15 @@
     "test": "vitest",
     "deploy": "npm run build",
     "scan": "tsx cli/scan.ts",
-    "test:repos": "tsx tests/run-tests.ts"
+    "test:repos": "tsx tests/run-tests.ts",
+    "test:graph": "tsx tests/test-graph.ts"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.18",
     "@heroicons/react": "^2.1.5",
+    "@types/cytoscape": "^3.21.9",
     "clsx": "^2.1.1",
+    "cytoscape": "^3.33.1",
     "fflate": "^0.8.1",
     "html2pdf.js": "^0.10.1",
     "marked": "^15.0.2",

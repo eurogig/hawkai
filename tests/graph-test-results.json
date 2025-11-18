@@ -1,0 +1,33 @@
+{
+  "results": [
+    {
+      "repo": "https://github.com/relari-ai/agent-examples",
+      "findings": 93,
+      "groups": 22,
+      "graphNodes": 57,
+      "graphEdges": 236,
+      "riskyPaths": 1,
+      "riskyPathsCritical": 1,
+      "riskyPathsHigh": 0,
+      "hasToolSource": false,
+      "hasToolSink": false,
+      "hasModelTransform": true,
+      "mermaidSnippet": "flowchart LR\n  N0[\"AG-LANGGRAPH-STREAM\\napps/langgraph-fin-agent/langgraph_fin_agent/main.py:33\"]\n  N1[\"AG-LANGGRAPH-STREAM\\napps/langgraph-fin-agent/langgraph_fin_agent/main.py:45\"]\n  N0 -->|source| N1"
+    },
+    {
+      "repo": "https://github.com/langchain-ai/langgraph",
+      "findings": 3503,
+      "groups": 808,
+      "graphNodes": 1472,
+      "graphEdges": 6492,
+      "riskyPaths": 20,
+      "riskyPathsCritical": 20,
+      "riskyPathsHigh": 0,
+      "hasToolSource": false,
+      "hasToolSink": false,
+      "hasModelTransform": true,
+      "mermaidSnippet": "flowchart LR\n  N0[\"RAG-RETRIEVAL\\ndocs/_scripts/third_party_page/get_download_stats.py:2\"]\n  N1[\"RAG-RETRIEVAL\\ndocs/_scripts/third_party_page/get_download_stats.py:95\"]\n  N0 -->|source| N1"
+    }
+  ],
+  "timestamp": "2025-11-16T18:29:53.858Z"
+}
