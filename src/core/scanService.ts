@@ -4,6 +4,8 @@ import { loadRuleIndex, compileRules } from "./rules";
 import { createReport, scanArchive } from "./scanner";
 import type { ProgressState, Report, ScanContext, RulePackIndex } from "@/types";
 import { setScoringConfig } from "./scoring";
+import { buildCoarseGraph, enrichGraphWithCallEdges, propagateConfidence, detectRiskyPaths } from "./reachability";
+import { unzipArchive, decodeUtf8, isLikelyBinary } from "./unzip";
 
 export interface ScanCallbacks {
   onState?: (state: ProgressState) => void;
@@ -91,6 +93,56 @@ export async function performScan(
   result.stats.durationMs = Math.round(performance.now() - jobStart);
 
   const report = createReport(context, result);
+
+  // Phase 3: Build reachability graph during scan
+  emit({ step: "report", message: "Building reachability graph" });
+  try {
+    const groups = report.groups || [];
+    if (groups.length > 0) {
+      // Build coarse graph
+      let graph = buildCoarseGraph(groups);
+      
+      // Collect file contents for call-edge extraction
+      const fileContents = new Map<string, string>();
+      const filesWithFindings = new Set<string>();
+      
+      for (const group of groups) {
+        if (group.primaryFinding.file) filesWithFindings.add(group.primaryFinding.file);
+        for (const r of group.relatedFindings) {
+          if (r.file) filesWithFindings.add(r.file);
+        }
+      }
+      
+      // Extract file contents from archive
+      const entries = unzipArchive(buffer);
+      for (const entry of entries) {
+        if (filesWithFindings.has(entry.path) && !isLikelyBinary(entry.data)) {
+          try {
+            const text = decodeUtf8(entry.data);
+            fileContents.set(entry.path, text);
+          } catch {
+            // Skip files that can't be decoded
+          }
+        }
+      }
+      
+      // Enrich graph with call edges
+      graph = enrichGraphWithCallEdges(graph, groups, fileContents);
+      
+      // Propagate confidence
+      graph = propagateConfidence(graph);
+      
+      // Detect risky paths
+      const riskyPaths = detectRiskyPaths(graph);
+      
+      // Add to report
+      report.graph = graph;
+      report.riskyPaths = riskyPaths;
+    }
+  } catch (error) {
+    // Don't fail the scan if graph building fails
+    console.warn("Failed to build reachability graph:", error);
+  }
 
   emit({ step: "report", message: "Scan complete" });
   return { report, owasp };

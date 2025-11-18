@@ -70,6 +70,9 @@ export interface FindingGroup {
   }>;
 }
 
+// Phase 3: Reachability graph types (re-exported from reachability.ts)
+export type { ReachabilityGraph, GraphNode, GraphEdge, RiskyPath } from "@/core/reachability";
+
 export interface Report {
   repo: string;
   branch: string;
@@ -79,6 +82,9 @@ export interface Report {
   findings: Finding[];
   groups?: FindingGroup[]; // Grouped findings for better organization
   score: RiskScore;
+  // Phase 3: Reachability graph (optional, built during scan)
+  graph?: ReachabilityGraph;
+  riskyPaths?: RiskyPath[];
 }
 
 export interface ScanContext {
