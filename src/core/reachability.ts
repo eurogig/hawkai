@@ -412,6 +412,11 @@ export function detectRiskyPaths(graph: ReachabilityGraph): RiskyPath[] {
     const file = node.file?.toLowerCase() || "";
     const nodeId = node.id.toLowerCase();
     
+    // Check for Streamlit input rule ID
+    if (nodeId.includes("ag-streamlit-input") || label.includes("ag-streamlit-input")) {
+      return true;
+    }
+    
     // Check if this is a tool node that receives input (tools can be sources)
     const isToolNode = /tool|uses_tool|ag-tool|ag-function/i.test(nodeId) || 
                        /ag-tool|ag-function/i.test(label);
