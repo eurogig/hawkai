@@ -416,8 +416,8 @@ export function generateRedTeamingPlans(
     const targetType = determineTargetType(path.source);
 
     // Create a more unique plan ID that includes transforms to avoid collisions
-    const transformPart = plan.path.transforms.length > 0 
-      ? `-${plan.path.transforms.map(t => t.id).join("-")}` 
+    const transformPart = path.transforms.length > 0 
+      ? `-${path.transforms.map(t => t.id).join("-")}` 
       : "";
     const planId = `plan-${path.source.id}${transformPart}-${path.sink.id}`;
 
