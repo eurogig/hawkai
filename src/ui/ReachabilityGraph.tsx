@@ -16,41 +16,82 @@ export default function ReachabilityGraphView({ graph, riskyPaths = [], onClose 
   const [selectedNode, setSelectedNode] = useState<{ id: string; label: string; file: string; line: number | null } | null>(null);
 
   useEffect(() => {
-    if (!graph || !containerRef.current || graph.nodes.length === 0) return;
+    if (!graph || !containerRef.current) {
+      console.log("Graph initialization skipped:", { 
+        hasGraph: !!graph, 
+        hasContainer: !!containerRef.current,
+        nodeCount: graph?.nodes.length || 0 
+      });
+      return;
+    }
 
-    try {
+    if (graph.nodes.length === 0) {
+      console.log("Graph has no nodes");
+      return;
+    }
+
+    // Wait for container to be visible and have dimensions
+    const initGraph = () => {
+      if (!containerRef.current) return;
+      
+      const container = containerRef.current;
+      const rect = container.getBoundingClientRect();
+      
+      if (rect.width === 0 || rect.height === 0) {
+        console.log("Container has no dimensions, retrying...", rect);
+        setTimeout(initGraph, 100);
+        return;
+      }
+
+      console.log("Initializing Cytoscape graph:", {
+        nodes: graph.nodes.length,
+        edges: graph.edges.length,
+        containerSize: { width: rect.width, height: rect.height }
+      });
+
+      // Prepare elements
+      const nodeElements = graph.nodes.map((node) => ({
+        data: {
+          id: node.id,
+          label: node.label || node.id,
+          file: node.file,
+          line: node.line,
+          severity: node.severity,
+          confidence: node.compositeScore ?? node.confidence ?? 0.5,
+          kind: node.kind,
+        },
+        classes: [
+          `severity-${node.severity || "low"}`,
+          `kind-${node.kind}`,
+        ].filter(Boolean).join(" "),
+      }));
+
+      const edgeElements = graph.edges.map((edge) => ({
+        data: {
+          id: edge.id,
+          source: edge.from,
+          target: edge.to,
+          label: edge.label || edge.kind,
+          kind: edge.kind,
+          weight: edge.weight ?? 0.5,
+        },
+        classes: [`edge-${edge.kind}`],
+      }));
+
+      console.log("Prepared elements:", {
+        nodes: nodeElements.length,
+        edges: edgeElements.length,
+        sampleNode: nodeElements[0],
+        sampleEdge: edgeElements[0]
+      });
+
+      try {
       // Initialize Cytoscape
       const cy = cytoscape({
       container: containerRef.current,
       elements: [
-        // Convert graph nodes to Cytoscape elements
-        ...graph.nodes.map((node) => ({
-          data: {
-            id: node.id,
-            label: node.label,
-            file: node.file,
-            line: node.line,
-            severity: node.severity,
-            confidence: node.compositeScore ?? node.confidence ?? 0.5,
-            kind: node.kind,
-          },
-          classes: [
-            `severity-${node.severity || "low"}`,
-            `kind-${node.kind}`,
-          ].filter(Boolean).join(" "),
-        })),
-        // Convert graph edges to Cytoscape elements
-        ...graph.edges.map((edge) => ({
-          data: {
-            id: edge.id,
-            source: edge.from,
-            target: edge.to,
-            label: edge.label || edge.kind,
-            kind: edge.kind,
-            weight: edge.weight ?? 0.5,
-          },
-          classes: [`edge-${edge.kind}`],
-        })),
+        ...nodeElements,
+        ...edgeElements,
       ],
       style: [
         {
@@ -142,6 +183,24 @@ export default function ReachabilityGraphView({ graph, riskyPaths = [], onClose 
 
     cyRef.current = cy;
 
+    console.log("Cytoscape initialized successfully", {
+      elementCount: cy.elements().length,
+      containerSize: {
+        width: containerRef.current.offsetWidth,
+        height: containerRef.current.offsetHeight
+      }
+    });
+
+    // Ensure graph fits and is visible
+    cy.fit(undefined, 50);
+    cy.center();
+    
+    // Force a resize to ensure canvas is properly sized
+    setTimeout(() => {
+      cy.resize();
+      cy.fit(undefined, 50);
+    }, 100);
+
     // Node click handler
     cy.on("tap", "node", (evt) => {
       const node = evt.target;
@@ -168,13 +227,21 @@ export default function ReachabilityGraphView({ graph, riskyPaths = [], onClose 
       console.log("Edge clicked:", edgeData);
     });
 
-      return () => {
-        cy.destroy();
+      } catch (error) {
+        console.error("Failed to initialize Cytoscape graph:", error);
+      }
+    };
+
+    // Start initialization
+    initGraph();
+
+    // Cleanup function
+    return () => {
+      if (cyRef.current) {
+        cyRef.current.destroy();
         cyRef.current = null;
-      };
-    } catch (error) {
-      console.error("Failed to initialize Cytoscape graph:", error);
-    }
+      }
+    };
   }, [graph]);
 
   // Highlight risky paths
@@ -266,8 +333,23 @@ export default function ReachabilityGraphView({ graph, riskyPaths = [], onClose 
         </div>
 
         {/* Graph container */}
-        <div className="flex-1 relative">
-          <div ref={containerRef} className="w-full h-full" />
+        <div className="flex-1 relative min-h-[400px] bg-grey-charcoal">
+          {!graph || graph.nodes.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-grey-ash">
+              <div className="text-center">
+                <p className="text-lg font-bold mb-2">
+                  <span className="text-steampunk-brass">[</span>NO GRAPH DATA<span className="text-steampunk-brass">]</span>
+                </p>
+                <p className="text-sm">Graph data is not available for this scan.</p>
+              </div>
+            </div>
+          ) : (
+            <div 
+              ref={containerRef} 
+              className="w-full h-full min-h-[400px]" 
+              style={{ minHeight: '400px', position: 'relative' }}
+            />
+          )}
           
           {/* Node details panel */}
           {selectedNode && (
