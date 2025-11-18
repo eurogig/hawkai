@@ -15,10 +15,11 @@ export default function ReachabilityGraphView({ graph, riskyPaths = [], onClose 
   const [filterRiskLevel, setFilterRiskLevel] = useState<string>("all");
 
   useEffect(() => {
-    if (!graph || !containerRef.current) return;
+    if (!graph || !containerRef.current || graph.nodes.length === 0) return;
 
-    // Initialize Cytoscape
-    const cy = cytoscape({
+    try {
+      // Initialize Cytoscape
+      const cy = cytoscape({
       container: containerRef.current,
       elements: [
         // Convert graph nodes to Cytoscape elements
@@ -56,8 +57,8 @@ export default function ReachabilityGraphView({ graph, riskyPaths = [], onClose 
           style: {
             "background-color": "#8B7355", // steampunk-brass
             "label": "data(label)",
-            "width": "mapData(confidence, 0, 1, 20, 60)",
-            "height": "mapData(confidence, 0, 1, 20, 60)",
+            "width": 40,
+            "height": 40,
             "font-size": "10px",
             "text-wrap": "wrap",
             "text-max-width": "80px",
@@ -99,12 +100,12 @@ export default function ReachabilityGraphView({ graph, riskyPaths = [], onClose 
         {
           selector: "edge",
           style: {
-            "width": "mapData(weight, 0, 1, 1, 4)",
+            "width": 2,
             "line-color": "#8B7355",
             "target-arrow-color": "#8B7355",
             "target-arrow-shape": "triangle",
             "curve-style": "bezier",
-            "opacity": "mapData(weight, 0, 1, 0.3, 1)",
+            "opacity": 0.7,
           },
         },
         {
@@ -130,21 +131,11 @@ export default function ReachabilityGraphView({ graph, riskyPaths = [], onClose 
         },
       ],
       layout: {
-        name: "cose", // Compound Spring Embedder
-        idealEdgeLength: 100,
-        nodeOverlap: 20,
-        refresh: 20,
+        name: "breadthfirst", // Use breadthfirst as default (more reliable)
         fit: true,
         padding: 30,
-        randomize: false,
-        componentSpacing: 100,
-        nodeRepulsion: 4500,
-        nestingFactor: 0.1,
-        gravity: 0.25,
-        numIter: 2500,
-        initialTemp: 200,
-        coolingFactor: 0.95,
-        minTemp: 1.0,
+        directed: true,
+        spacingFactor: 1.5,
       },
     });
 
@@ -165,10 +156,13 @@ export default function ReachabilityGraphView({ graph, riskyPaths = [], onClose 
       console.log("Edge clicked:", edgeData);
     });
 
-    return () => {
-      cy.destroy();
-      cyRef.current = null;
-    };
+      return () => {
+        cy.destroy();
+        cyRef.current = null;
+      };
+    } catch (error) {
+      console.error("Failed to initialize Cytoscape graph:", error);
+    }
   }, [graph]);
 
   // Highlight risky paths

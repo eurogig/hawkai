@@ -70,7 +70,9 @@ export interface FindingGroup {
   }>;
 }
 
-// Phase 3: Reachability graph types (re-exported from reachability.ts)
+// Phase 3: Reachability graph types (imported from reachability.ts)
+import type { ReachabilityGraph, RiskyPath } from "@/core/reachability";
+
 export type { ReachabilityGraph, GraphNode, GraphEdge, RiskyPath } from "@/core/reachability";
 
 export interface Report {
