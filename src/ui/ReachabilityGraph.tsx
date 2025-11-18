@@ -13,6 +13,7 @@ export default function ReachabilityGraphView({ graph, riskyPaths = [], onClose 
   const cyRef = useRef<cytoscape.Core | null>(null);
   const [selectedPath, setSelectedPath] = useState<RiskyPath | null>(null);
   const [filterRiskLevel, setFilterRiskLevel] = useState<string>("all");
+  const [selectedNode, setSelectedNode] = useState<{ id: string; label: string; file: string; line: number | null } | null>(null);
 
   useEffect(() => {
     if (!graph || !containerRef.current || graph.nodes.length === 0) return;
@@ -145,8 +146,19 @@ export default function ReachabilityGraphView({ graph, riskyPaths = [], onClose 
     cy.on("tap", "node", (evt) => {
       const node = evt.target;
       const nodeData = node.data();
-      console.log("Node clicked:", nodeData);
-      // TODO: Show node details, jump to file/line
+      setSelectedNode({
+        id: nodeData.id,
+        label: nodeData.label || nodeData.id,
+        file: nodeData.file || "",
+        line: nodeData.line ?? null,
+      });
+    });
+
+    // Click on background to deselect
+    cy.on("tap", (evt) => {
+      if (evt.target === cy) {
+        setSelectedNode(null);
+      }
     });
 
     // Edge click handler
@@ -256,6 +268,43 @@ export default function ReachabilityGraphView({ graph, riskyPaths = [], onClose 
         {/* Graph container */}
         <div className="flex-1 relative">
           <div ref={containerRef} className="w-full h-full" />
+          
+          {/* Node details panel */}
+          {selectedNode && (
+            <div className="absolute top-4 left-4 w-80 bg-grey-iron border-2 border-steampunk-brass p-4 shadow-lg z-10">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-bold text-terminal-green-bright uppercase">
+                  <span className="text-steampunk-brass">[</span>NODE DETAILS<span className="text-steampunk-brass">]</span>
+                </h4>
+                <button
+                  onClick={() => setSelectedNode(null)}
+                  className="text-grey-ash hover:text-terminal-green text-lg font-bold"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="space-y-2 text-xs text-terminal-green">
+                <div>
+                  <span className="text-steampunk-brass font-bold">Label:</span> {selectedNode.label}
+                </div>
+                {selectedNode.file && (
+                  <div>
+                    <span className="text-steampunk-brass font-bold">File:</span> {selectedNode.file}
+                  </div>
+                )}
+                {selectedNode.line !== null && (
+                  <div>
+                    <span className="text-steampunk-brass font-bold">Line:</span> {selectedNode.line}
+                  </div>
+                )}
+                {selectedNode.file && (
+                  <div className="mt-2 p-2 bg-grey-charcoal border border-steampunk-brass text-xs font-mono break-all">
+                    {selectedNode.file}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           
           {/* Risky paths sidebar */}
           {riskyPaths.length > 0 && (
