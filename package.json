@@ -12,7 +12,8 @@
     "deploy": "npm run build",
     "scan": "tsx cli/scan.ts",
     "test:repos": "tsx tests/run-tests.ts",
-    "test:graph": "tsx tests/test-graph.ts"
+    "test:graph": "tsx tests/test-graph.ts",
+    "test:red-teaming": "tsx tests/test-red-teaming.ts"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.18",
