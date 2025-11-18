@@ -87,6 +87,7 @@ const RULE_RELATIONSHIPS: Record<string, {
   "AG-LANGCHAIN-INVOKE": { type: "usage", childRules: ["AI-FP-LANGCHAIN-IMPORT"] },
   "AG-TOOL-DECORATOR": { type: "usage" },
   "AG-TOOL-CLASS": { type: "usage" },
+  "AG-STREAMLIT-INPUT": { type: "usage" },
   "AG-TOOL-LIST": { type: "usage" },
   "AG-FUNCTION-TOOL-TYPE": { type: "usage", childRules: ["AI-FP-OPENAI-FUNCTION-CALLING"] },
   "AG-A2A-FRAMEWORK": { type: "hint", parentRules: ["AG-A2A-EXECUTOR", "AG-A2A-MESSAGING"] },

@@ -11,7 +11,7 @@ export interface RedTeamingPlan {
     label: string;
     file: string;
     line: number | null;
-    type: "http_endpoint" | "cli" | "task" | "file" | "env" | "unknown";
+    type: "http_endpoint" | "cli" | "task" | "file" | "env" | "streamlit" | "unknown";
   };
   path: {
     source: GraphNode;
@@ -201,6 +201,24 @@ function generatePathSpecificAttacks(
     });
   }
 
+  // Streamlit → Model → Tool
+  if (sourceType.includes("streamlit") || sourceType.includes("st.")) {
+    attacks.push({
+      title: "Prompt injection via Streamlit input",
+      description: "Inject malicious instructions through Streamlit chat/text inputs to manipulate model behavior or tool execution."
+    });
+    if (sinkType.includes("tool")) {
+      attacks.push({
+        title: "Direct tool invocation via Streamlit",
+        description: "Attempt to coerce model to execute tools directly through carefully crafted Streamlit input prompts."
+      });
+      attacks.push({
+        title: "Tool selection manipulation",
+        description: "Manipulate model's tool selection by injecting tool names or function signatures in Streamlit input."
+      });
+    }
+  }
+
   // User input → Agent → Tool (generic)
   if (sourceType.includes("input") && transformTypes.some(t => t.includes("agent")) && sinkType.includes("tool")) {
     attacks.push({
@@ -306,10 +324,14 @@ function identifyTools(
 /**
  * Determine target type from source node
  */
-function determineTargetType(source: GraphNode): "http_endpoint" | "cli" | "task" | "file" | "env" | "unknown" {
+function determineTargetType(source: GraphNode): "http_endpoint" | "cli" | "task" | "file" | "env" | "streamlit" | "unknown" {
   const label = source.label.toLowerCase();
   const file = (source.file || "").toLowerCase();
 
+  if (label.includes("streamlit") || label.includes("st.") || file.includes("streamlit") || 
+      /st\.(chat_input|text_input|text_area)/i.test(label)) {
+    return "streamlit";
+  }
   if (label.includes("http") || label.includes("api") || label.includes("endpoint") || 
       file.includes("route") || file.includes("api") || file.includes("endpoint")) {
     return "http_endpoint";
