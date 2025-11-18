@@ -75,6 +75,10 @@ import type { ReachabilityGraph, RiskyPath } from "@/core/reachability";
 
 export type { ReachabilityGraph, GraphNode, GraphEdge, RiskyPath } from "@/core/reachability";
 
+// Phase 4: Red-teaming plan types (imported from redTeaming.ts)
+import type { RedTeamingPlan } from "@/core/redTeaming";
+export type { RedTeamingPlan };
+
 export interface Report {
   repo: string;
   branch: string;
@@ -87,6 +91,8 @@ export interface Report {
   // Phase 3: Reachability graph (optional, built during scan)
   graph?: ReachabilityGraph;
   riskyPaths?: RiskyPath[];
+  // Phase 4: Red-teaming plans (optional, generated from risky paths)
+  redTeamingPlans?: RedTeamingPlan[];
 }
 
 export interface ScanContext {

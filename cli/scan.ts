@@ -313,8 +313,10 @@ async function main() {
     // Optional: build reachability graph
     let graphOutput = "";
     let riskyPaths: any[] = [];
+    let redTeamingPlans: any[] = [];
     if (args.graph) {
       const { buildCoarseGraph, enrichGraphWithCallEdges, propagateConfidence, detectRiskyPaths, toDot, toMermaid } = await import("../src/core/reachability.js");
+      const { generateRedTeamingPlans } = await import("../src/core/redTeaming.js");
       const groups = report.groups || [];
       let graph = buildCoarseGraph(groups);
       
@@ -352,10 +354,17 @@ async function main() {
         
         // Detect risky paths
         riskyPaths = detectRiskyPaths(graph);
+        
+        // Generate red-teaming plans
+        if (riskyPaths.length > 0) {
+          const { loadRuleIndex } = await import("../src/core/rules.js");
+          const { rules: ruleDefs, owasp } = await loadRuleIndex();
+          redTeamingPlans = generateRedTeamingPlans(riskyPaths, report, owasp);
+        }
       }
       
       if (args.graph === "json") {
-        graphOutput = JSON.stringify({ graph, riskyPaths }, null, 2);
+        graphOutput = JSON.stringify({ graph, riskyPaths, redTeamingPlans }, null, 2);
       } else if (args.graph === "dot") {
         graphOutput = toDot(graph);
       } else if (args.graph === "mermaid") {
@@ -439,6 +448,34 @@ async function main() {
       });
       if (riskyPaths.length > 10) {
         console.log(`   ... and ${riskyPaths.length - 10} more risky paths`);
+      }
+    }
+    
+    if (redTeamingPlans.length > 0 && !args.graphOnly) {
+      console.log("\n--- Red-Teaming Plans ---\n");
+      redTeamingPlans.slice(0, 5).forEach((plan, i) => {
+        console.log(`${i + 1}. [${plan.riskLevel.toUpperCase()}] ${plan.target.label}`);
+        console.log(`   Target: ${plan.target.type} - ${plan.target.file}${plan.target.line ? `:${plan.target.line}` : ""}`);
+        console.log(`   Path: ${plan.path.source.label} → ${plan.path.transforms.map(t => t.label).join(" → ")} → ${plan.path.sink.label}`);
+        if (plan.risks.length > 0) {
+          console.log(`   OWASP Risks: ${plan.risks.map(r => r.owasp).join(", ")}`);
+        }
+        if (plan.frameworks.length > 0) {
+          console.log(`   Frameworks: ${plan.frameworks.join(", ")}`);
+        }
+        if (plan.attacks.length > 0) {
+          console.log(`   Suggested Attacks (${plan.attacks.length}):`);
+          plan.attacks.slice(0, 3).forEach(attack => {
+            console.log(`     - [${attack.priority.toUpperCase()}] ${attack.title}`);
+          });
+          if (plan.attacks.length > 3) {
+            console.log(`     ... and ${plan.attacks.length - 3} more attacks`);
+          }
+        }
+        console.log("");
+      });
+      if (redTeamingPlans.length > 5) {
+        console.log(`   ... and ${redTeamingPlans.length - 5} more red-teaming plans`);
       }
     }
     
