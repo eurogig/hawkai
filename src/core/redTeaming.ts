@@ -338,9 +338,25 @@ export function generateRedTeamingPlans(
   report: Report,
   owaspIndex: RulePackIndex["owasp"]
 ): RedTeamingPlan[] {
+  // First, deduplicate risky paths themselves (in case detectRiskyPaths returned duplicates)
+  const pathKey = (path: RiskyPath): string => {
+    const transformIds = path.transforms.map(t => `${t.id}:${t.file || ""}:${t.line ?? ""}`).sort().join("|");
+    return `${path.source.id}:${path.source.file || ""}:${path.source.line ?? ""}|${transformIds}|${path.sink.id}:${path.sink.file || ""}:${path.sink.line ?? ""}`;
+  };
+  
+  const seenPaths = new Set<string>();
+  const uniquePaths: RiskyPath[] = [];
+  for (const path of riskyPaths) {
+    const key = pathKey(path);
+    if (!seenPaths.has(key)) {
+      seenPaths.add(key);
+      uniquePaths.push(path);
+    }
+  }
+
   const plans: RedTeamingPlan[] = [];
 
-  for (const path of riskyPaths) {
+  for (const path of uniquePaths) {
     // Extract OWASP risks
     const risks = extractOWASPRisks(path, report.groups || [], owaspIndex);
 
@@ -421,9 +437,15 @@ export function generateRedTeamingPlans(
   }
 
   // Deduplicate plans based on source + sink + transforms combination
+  // Include file/line to handle cases where same rule ID appears in different contexts
   const planKey = (plan: RedTeamingPlan): string => {
-    const transformIds = plan.path.transforms.map(t => t.id).sort().join("|");
-    return `${plan.path.source.id}|${transformIds}|${plan.path.sink.id}`;
+    const transformKey = plan.path.transforms
+      .map(t => `${t.id}:${t.file || ""}:${t.line ?? ""}`)
+      .sort()
+      .join("|");
+    const sourceKey = `${plan.path.source.id}:${plan.path.source.file || ""}:${plan.path.source.line ?? ""}`;
+    const sinkKey = `${plan.path.sink.id}:${plan.path.sink.file || ""}:${plan.path.sink.line ?? ""}`;
+    return `${sourceKey}|${transformKey}|${sinkKey}`;
   };
 
   const seen = new Set<string>();
@@ -434,6 +456,9 @@ export function generateRedTeamingPlans(
     if (!seen.has(key)) {
       seen.add(key);
       deduplicated.push(plan);
+    } else {
+      // Log when we skip a duplicate (for debugging)
+      console.debug(`[RedTeaming] Skipping duplicate plan: ${plan.target.label} (key: ${key})`);
     }
   }
 
