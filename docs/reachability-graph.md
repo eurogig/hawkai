@@ -163,6 +163,118 @@ Risky paths are scored and prioritized:
 - Max path length: 6 hops
 - Prioritizes high-confidence nodes first
 
+## Red-Teaming Plans
+
+Phase 4 extends the reachability graph with **auto-generated red-teaming plans** that provide actionable attack scenarios based on detected risky paths, frameworks, and OWASP LLM Top 10 risks.
+
+### Plan Generation
+
+For each risky path detected, a red-teaming plan is automatically generated that includes:
+
+1. **Target**: Entry point (HTTP endpoint, CLI, task, file, env/config)
+2. **Path**: Full source → transform → sink path
+3. **OWASP Risks**: Mapped from findings in the path
+4. **Frameworks**: Detected agent frameworks (LangGraph, LangChain, CrewAI, etc.)
+5. **Tools**: Detected tools and capabilities
+6. **Attacks**: Framework-specific and path-specific attack suggestions
+
+### Framework-Specific Attacks
+
+Plans include attacks tailored to detected frameworks:
+
+- **LangGraph**: Metadata poisoning, branching manipulation, state graph manipulation
+- **LangChain**: Chain manipulation, tool misuse, memory poisoning, LCEL manipulation
+- **CrewAI**: Agent role manipulation, task delegation abuse, crew coordination bypass
+- **AutoGen**: Multi-agent conversation hijacking, group chat manipulation
+- **LlamaIndex**: RAG retrieval poisoning, index manipulation
+- **DSPy**: Program manipulation, signature hijacking
+
+### Path-Specific Attacks
+
+Attacks are also generated based on source/transform/sink combinations:
+
+- **HTTP → Model → Filesystem**: File write injection, path traversal
+- **HTTP → Model → Shell**: Command injection, command chaining
+- **HTTP → Model → Database**: SQL/NoSQL injection via model output
+- **File → Model → Network**: Data exfiltration
+- **Env/Config → Model → Tool**: Tool misuse via configuration
+- **User Input → Agent → Tool**: Tool coercion, unauthorized tool access
+- **RAG → Model → Output**: RAG retrieval poisoning, cross-user data leakage
+
+### Plan Structure
+
+```typescript
+interface RedTeamingPlan {
+  id: string;
+  target: {
+    label: string;
+    file: string;
+    line: number | null;
+    type: "http_endpoint" | "cli" | "task" | "file" | "env" | "unknown";
+  };
+  path: {
+    source: GraphNode;
+    transforms: GraphNode[];
+    sink: GraphNode;
+    fullPath: GraphNode[];
+  };
+  risks: Array<{
+    owasp: string;
+    title: string;
+    description: string;
+    confidence: number;
+  }>;
+  attacks: Array<{
+    title: string;
+    description: string;
+    category: "framework_specific" | "path_specific" | "general";
+    priority: "critical" | "high" | "moderate" | "low";
+  }>;
+  frameworks: string[];
+  tools: string[];
+  confidence: number;
+  riskLevel: "critical" | "high" | "moderate" | "low";
+}
+```
+
+### Usage
+
+#### CLI
+
+Red-teaming plans are included in graph output:
+
+```bash
+# JSON output with plans
+npm run scan -- <repo-url> --graph json
+
+# Plans are displayed after risky paths
+npm run scan -- <repo-url> --graph json
+```
+
+#### UI
+
+Red-teaming plans appear in the report after findings, showing:
+- Target entry point and type
+- Full path visualization
+- OWASP risks mapped
+- Detected frameworks and tools
+- Prioritized attack suggestions
+
+### Testing
+
+Run red-teaming plan tests:
+
+```bash
+npm run test:red-teaming
+```
+
+Tests validate:
+- Plan generation from risky paths
+- Framework detection
+- Attack suggestion generation
+- OWASP risk mapping
+- Plan structure validation
+
 ## Output Formats
 
 ### JSON
@@ -182,6 +294,38 @@ Full graph structure with nodes, edges, and risky paths:
       "transforms": [...],
       "sink": {...},
       "path": [...],
+      "confidence": 0.85,
+      "riskLevel": "critical"
+    }
+  ],
+  "redTeamingPlans": [
+    {
+      "id": "plan-...",
+      "target": {
+        "label": "GET /api/portfolio",
+        "file": "routes/portfolio.py",
+        "line": 10,
+        "type": "http_endpoint"
+      },
+      "path": {...},
+      "risks": [
+        {
+          "owasp": "LLM02: Data Leakage",
+          "title": "Data Leakage",
+          "description": "...",
+          "confidence": 0.8
+        }
+      ],
+      "attacks": [
+        {
+          "title": "Metadata poisoning in LangGraph nodes",
+          "description": "Attempt to inject malicious metadata...",
+          "category": "framework_specific",
+          "priority": "critical"
+        }
+      ],
+      "frameworks": ["langgraph"],
+      "tools": ["tool_execution"],
       "confidence": 0.85,
       "riskLevel": "critical"
     }
@@ -282,6 +426,8 @@ Future enhancements:
 
 ## Testing
 
+### Graph Tests
+
 Run graph tests:
 
 ```bash
@@ -296,4 +442,20 @@ Tests validate:
 - Tool→model→tool pattern detection
 
 Results saved to `tests/graph-test-results.json` for regression testing.
+
+### Red-Teaming Plan Tests
+
+Run red-teaming plan tests:
+
+```bash
+npm run test:red-teaming
+```
+
+Tests validate:
+- Plan generation from risky paths
+- Framework detection and mapping
+- Attack suggestion generation (framework-specific and path-specific)
+- OWASP risk mapping from findings
+- Plan structure validation
+- Attack prioritization
 

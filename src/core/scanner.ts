@@ -85,6 +85,7 @@ const INVENTORY_RULE_MAP: Record<string, Partial<Inventory>> = {
   "AG-TOOL-DECORATOR": { tools: ["agent tools"] },
   "AG-TOOL-CLASS": { tools: ["agent tools"] },
   "AG-TOOL-LIST": { tools: ["agent tools"] },
+  "AG-STREAMLIT-INPUT": { tools: ["streamlit input"] },
   "AG-FUNCTION-TOOL-TYPE": { tools: ["function calling"] },
   "AG-A2A-FRAMEWORK": { frameworks: ["multi-agent"], tools: ["A2A orchestration"] },
   "AG-A2A-EXECUTOR": { frameworks: ["multi-agent"], tools: ["agent executor"] },

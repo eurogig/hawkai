@@ -6,6 +6,7 @@ import type { ProgressState, Report, ScanContext, RulePackIndex } from "@/types"
 import { setScoringConfig } from "./scoring";
 import { buildCoarseGraph, enrichGraphWithCallEdges, propagateConfidence, detectRiskyPaths } from "./reachability";
 import { unzipArchive, decodeUtf8, isLikelyBinary } from "./unzip";
+import { generateRedTeamingPlans } from "./redTeaming";
 
 export interface ScanCallbacks {
   onState?: (state: ProgressState) => void;
@@ -138,6 +139,16 @@ export async function performScan(
       // Add to report
       report.graph = graph;
       report.riskyPaths = riskyPaths;
+
+      // Phase 4: Generate red-teaming plans from risky paths
+      try {
+        emit({ step: "report", message: "Generating red-teaming plans" });
+        const redTeamingPlans = generateRedTeamingPlans(riskyPaths, report, owasp);
+        report.redTeamingPlans = redTeamingPlans;
+      } catch (error) {
+        // Don't fail the scan if plan generation fails
+        console.warn("Failed to generate red-teaming plans:", error);
+      }
     }
   } catch (error) {
     // Don't fail the scan if graph building fails

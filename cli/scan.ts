@@ -310,13 +310,18 @@ async function main() {
     
     log(`[INFO] Scan complete! Found ${result.findings.length} findings`);
     
-    // Optional: build reachability graph
+    // Build reachability graph and red-teaming plans (always, for debugging and features)
     let graphOutput = "";
     let riskyPaths: any[] = [];
-    if (args.graph) {
+    let redTeamingPlans: any[] = [];
+    let graph: any = null;
+    
+    // Always build graph (needed for red-teaming plans)
+    {
       const { buildCoarseGraph, enrichGraphWithCallEdges, propagateConfidence, detectRiskyPaths, toDot, toMermaid } = await import("../src/core/reachability.js");
+      const { generateRedTeamingPlans } = await import("../src/core/redTeaming.js");
       const groups = report.groups || [];
-      let graph = buildCoarseGraph(groups);
+      let tempGraph = buildCoarseGraph(groups);
       
       // Enrich with call edges if we have file contents
       if (groups.length > 0) {
@@ -345,17 +350,27 @@ async function main() {
         }
         
         // Enrich graph with call edges
-        graph = enrichGraphWithCallEdges(graph, groups, fileContents);
+        tempGraph = enrichGraphWithCallEdges(tempGraph, groups, fileContents);
         
         // Propagate confidence along paths and update edge weights
-        graph = propagateConfidence(graph);
+        tempGraph = propagateConfidence(tempGraph);
         
         // Detect risky paths
-        riskyPaths = detectRiskyPaths(graph);
+        riskyPaths = detectRiskyPaths(tempGraph);
+        
+        // Generate red-teaming plans
+        if (riskyPaths.length > 0) {
+          // Use the OWASP metadata we already loaded from filesystem
+          redTeamingPlans = generateRedTeamingPlans(riskyPaths, report, owasp);
+        }
       }
       
+      // Store graph for output
+      graph = tempGraph;
+      
+      // Format graph output if requested
       if (args.graph === "json") {
-        graphOutput = JSON.stringify({ graph, riskyPaths }, null, 2);
+        graphOutput = JSON.stringify({ graph, riskyPaths, redTeamingPlans }, null, 2);
       } else if (args.graph === "dot") {
         graphOutput = toDot(graph);
       } else if (args.graph === "mermaid") {
@@ -366,6 +381,13 @@ async function main() {
     if (args.graphOnly && args.graph) {
       console.log(graphOutput);
       return;
+    }
+    
+    // Always show red-teaming plans in summary/text output (not just when --graph is specified)
+    if (redTeamingPlans.length === 0 && riskyPaths.length > 0) {
+      // Try to generate plans if we have risky paths but no plans yet
+      const { generateRedTeamingPlans } = await import("../src/core/redTeaming.js");
+      redTeamingPlans = generateRedTeamingPlans(riskyPaths, report, owasp);
     }
 
     // Flatten findings from groups for output
@@ -439,6 +461,34 @@ async function main() {
       });
       if (riskyPaths.length > 10) {
         console.log(`   ... and ${riskyPaths.length - 10} more risky paths`);
+      }
+    }
+    
+    if (redTeamingPlans.length > 0 && !args.graphOnly) {
+      console.log("\n--- Red-Teaming Plans ---\n");
+      redTeamingPlans.slice(0, 5).forEach((plan, i) => {
+        console.log(`${i + 1}. [${plan.riskLevel.toUpperCase()}] ${plan.target.label}`);
+        console.log(`   Target: ${plan.target.type} - ${plan.target.file}${plan.target.line ? `:${plan.target.line}` : ""}`);
+        console.log(`   Path: ${plan.path.source.label} → ${plan.path.transforms.map(t => t.label).join(" → ")} → ${plan.path.sink.label}`);
+        if (plan.risks.length > 0) {
+          console.log(`   OWASP Risks: ${plan.risks.map(r => r.owasp).join(", ")}`);
+        }
+        if (plan.frameworks.length > 0) {
+          console.log(`   Frameworks: ${plan.frameworks.join(", ")}`);
+        }
+        if (plan.attacks.length > 0) {
+          console.log(`   Suggested Attacks (${plan.attacks.length}):`);
+          plan.attacks.slice(0, 3).forEach(attack => {
+            console.log(`     - [${attack.priority.toUpperCase()}] ${attack.title}`);
+          });
+          if (plan.attacks.length > 3) {
+            console.log(`     ... and ${plan.attacks.length - 3} more attacks`);
+          }
+        }
+        console.log("");
+      });
+      if (redTeamingPlans.length > 5) {
+        console.log(`   ... and ${redTeamingPlans.length - 5} more red-teaming plans`);
       }
     }
     

@@ -372,3 +372,15 @@
   evidenceHint: "Async loop with agent calls"
   remediation: "Implement loop limits, iteration counters, and timeout mechanisms. Add concurrency controls and rate limiting."
   confidence: 0.65
+- id: AG-STREAMLIT-INPUT
+  title: "Streamlit user input detected"
+  severity: "high"
+  category: "Agentic Design"
+  owasp:
+    - "LLM01: Prompt Injection"
+  fileGlobs:
+    - "**/*.py"
+  contentRegex: "(st\\.(chat_input|text_input|text_area|number_input|selectbox|multiselect|slider|file_uploader)\\s*\\()"
+  evidenceHint: "Streamlit input widget"
+  remediation: "Validate and sanitize all user inputs from Streamlit widgets before passing to AI models or agents. Implement input length limits and content filtering."
+  confidence: 0.85
