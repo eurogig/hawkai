@@ -5,6 +5,7 @@ import InventoryGrid from "./Inventory";
 import FindingsTable from "./FindingsTable";
 import RiskScoreBadge from "./RiskScore";
 import ReachabilityGraphView from "./ReachabilityGraph";
+import RedTeamingPlans from "./RedTeamingPlans";
 
 interface ReportProps {
   report: Report;
@@ -156,6 +157,11 @@ const ReportView = forwardRef<HTMLDivElement, ReportProps>(function ReportView(
           owasp={owasp}
         />
       </div>
+
+      {/* Red-Teaming Plans */}
+      {report.redTeamingPlans && report.redTeamingPlans.length > 0 && (
+        <RedTeamingPlans plans={report.redTeamingPlans} />
+      )}
 
       {/* Reachability Graph Overlay */}
       {showGraph && report.graph && (
